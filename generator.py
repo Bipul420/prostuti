@@ -48,6 +48,67 @@ def save(path, data):
 
 
 # ---------- Gemini ----------
+GEM_EXTRA, OR_EXTRA = [], []
+used_models = set()
+
+
+def http_json(url, headers):
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.load(r)
+
+
+def discover():
+    """Ask Gemini and OpenRouter which models exist today, so renamed or retired
+    models never stop the work."""
+    global GEM_EXTRA, OR_EXTRA
+    try:
+        data = http_json("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
+                         {"x-goog-api-key": KEY})
+        names = []
+        for m in data.get("models", []):
+            n = m.get("name", "").replace("models/", "")
+            if not n.startswith("gemini"):
+                continue
+            if "generateContent" not in m.get("supportedGenerationMethods", []):
+                continue
+            if any(b in n for b in ("image", "tts", "live", "embed", "audio", "robotics",
+                                    "computer", "vision", "learnlm", "thinking-exp")):
+                continue
+            names.append(n)
+
+        def rank(n):
+            fam = 0 if ("flash" in n and "lite" not in n) else (1 if "pro" in n else 2)
+            nums = re.findall(r"\d+(?:\.\d+)?", n)
+            ver = 99.0 if "latest" in n else (float(nums[0]) if nums else 0.0)
+            pre = 1 if ("preview" in n or "exp" in n) else 0
+            return (fam, pre, -ver, n)
+        GEM_EXTRA = sorted(set(names), key=rank)
+        log("Gemini models found:", ", ".join(GEM_EXTRA[:8]) or "none")
+    except Exception as e:
+        log("could not list Gemini models:", e)
+    if ORKEY:
+        try:
+            data = http_json("https://openrouter.ai/api/v1/models", {})
+            pref = ("gpt-oss-120b", "qwen3", "nemotron", "deepseek", "llama-3.3", "gemma", "glm", "kimi", "mistral")
+            rows = []
+            for m in data.get("data", []):
+                i = m.get("id", "")
+                if not i.endswith(":free"):
+                    continue
+                out = (m.get("architecture") or {}).get("output_modalities") or ["text"]
+                if "text" not in out:
+                    continue
+                if any(b in i for b in ("-vl", "vision", "image", "audio", "embed", "guard", "safety", "lyria")):
+                    continue
+                idx = next((k for k, x in enumerate(pref) if x in i), 99)
+                rows.append((idx, -(m.get("context_length") or 0), i))
+            OR_EXTRA = ["or:" + r[2] for r in sorted(rows)] + ["or:openrouter/free"]
+            log("OpenRouter free models found:", ", ".join(OR_EXTRA[:6]) or "none")
+        except Exception as e:
+            log("could not list OpenRouter models:", e)
+
+
 def call_model(model, prompt, temperature):
     if model.startswith("or:"):
         return call_openrouter(model[3:], prompt, temperature)
@@ -76,10 +137,17 @@ def call_openrouter(model, prompt, temperature):
     return data["choices"][0]["message"]["content"] or ""
 
 
-def ask(models, prompt, temperature=0.7):
+def ask(models, prompt, temperature=0.7, role="gen"):
     """Try models in order. Raises Stop when everything is exhausted."""
     global calls
-    for model in models:
+    if role == "verify":
+        cands = [m for m in models if m.startswith("or:")] + OR_EXTRA + \
+                [m for m in models if not m.startswith("or:")] + GEM_EXTRA
+    else:
+        cands = [m for m in models if not m.startswith("or:")] + GEM_EXTRA
+    seen = set()
+    cands = [m for m in cands if not (m in seen or seen.add(m))]
+    for model in cands:
         if model in dead_models:
             continue
         is_or = model.startswith("or:")
@@ -94,7 +162,10 @@ def ask(models, prompt, temperature=0.7):
             calls += 1
             try:
                 txt = call_model(model, prompt, temperature)
-                return parse_json(txt)
+                res = parse_json(txt)
+                if model not in used_models:
+                    used_models.add(model); log("working model:", model)
+                return res
             except urllib.error.HTTPError as e:
                 msg = e.read().decode("utf-8", "ignore")[:300]
                 low = msg.lower()
@@ -107,13 +178,13 @@ def ask(models, prompt, temperature=0.7):
                 if e.code in (401, 402, 403):
                     log("not allowed (%d) for %s, skipping it" % (e.code, model)); dead_models.add(model); break
                 if e.code >= 500:
-                    time.sleep(20); continue
+                    log("server error %d from %s, retrying" % (e.code, model)); time.sleep(20); continue
                 log("HTTP", e.code, msg); dead_models.add(model); break
             except (ValueError, KeyError, IndexError, TypeError):
                 log("bad answer format from", model, "- retrying"); continue
             except Exception as e:
                 log("network problem:", e); time.sleep(20); continue
-    raise Stop("no model available")
+    raise Stop("no model available (tried %d models)" % len(cands))
 
 
 def parse_json(txt):
@@ -228,7 +299,7 @@ def verify_prompt(items):
 
 def solve_check(items):
     """Keep only questions where an independent solver agrees with the key in EN and BN."""
-    res = ask(CFG["verifier_models"], verify_prompt(items), temperature=0.0)
+    res = ask(CFG["verifier_models"], verify_prompt(items), temperature=0.0, role="verify")
     got = {}
     for r in res if isinstance(res, list) else []:
         try:
@@ -243,6 +314,7 @@ def main():
     if not KEY:
         log("GEMINI_API_KEY is missing"); return 1
     log("OpenRouter key present:", bool(ORKEY))
+    discover()
     topics = load("topics.json", [])
     state = load("state.json", {"round": 1, "cursor": 0, "made": 0, "rejected": 0})
     # global exact-duplicate set
@@ -273,7 +345,7 @@ def main():
             need = min(BATCH, target - len(data))
             mix = "about 30% easy, 50% medium, 20% hard"
             existing = [q["en"] for q in data]
-            raw = ask(CFG["generator_models"], gen_prompt(t, existing, need, mix))
+            raw = ask(CFG["generator_models"], gen_prompt(t, existing, need, mix), role="gen")
             if not isinstance(raw, list):
                 raise Stop("generator returned non-list")
             fresh, rej = [], 0
@@ -306,7 +378,7 @@ def main():
     except Stop as e:
         log("stopping:", e)
     save("state.json", state)
-    log("api calls used:", calls)
+    log("api calls used:", calls, "| minutes:", round((time.time() - START) / 60))
     return 0
 
 
