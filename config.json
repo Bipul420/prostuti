@@ -1,0 +1,19 @@
+{
+  "per_topic": 150,
+  "batch_size": 10,
+  "seconds_between_calls": 7,
+  "run_minutes": 150,
+  "max_calls_per_run": 400,
+  "generator_models": [
+    "gemini-2.5-pro",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash"
+  ],
+  "verifier_models": [
+    "or:openai/gpt-oss-120b:free",
+    "or:openrouter/free",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash"
+  ],
+  "openrouter_gap": 4
+}
