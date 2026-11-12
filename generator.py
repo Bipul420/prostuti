@@ -137,8 +137,18 @@ def call_openrouter(model, prompt, temperature):
     return data["choices"][0]["message"]["content"] or ""
 
 
+cooldown = {}   # model -> time when it may be used again
+fmt_fail = {}
+
+
+def retry_seconds(msg):
+    m = re.search(r"retry in (\d+(?:\.\d+)?)s", msg, re.I) or re.search(r'retryDelay"?\s*:\s*"(\d+(?:\.\d+)?)s', msg)
+    return float(m.group(1)) if m else 60.0
+
+
 def ask(models, prompt, temperature=0.7, role="gen"):
-    """Try models in order. Raises Stop when everything is exhausted."""
+    """Use the best model that is ready. A model that is rate limited or busy is
+    put to rest and the next model is used at once. Raises Stop when nothing is left."""
     global calls
     if role == "verify":
         cands = [m for m in models if m.startswith("or:")] + OR_EXTRA + \
@@ -147,44 +157,66 @@ def ask(models, prompt, temperature=0.7, role="gen"):
         cands = [m for m in models if not m.startswith("or:")] + GEM_EXTRA
     seen = set()
     cands = [m for m in cands if not (m in seen or seen.add(m))]
-    for model in cands:
-        if model in dead_models:
+    while True:
+        now = time.time()
+        if now - START > RUN_SECONDS or calls >= MAX_CALLS:
+            raise Stop("time or call budget finished")
+        live = []
+        for m in cands:
+            if m in dead_models:
+                continue
+            if (m.startswith("or:") and not ORKEY) or (not m.startswith("or:") and not KEY):
+                dead_models.add(m); continue
+            live.append(m)
+        if not live:
+            raise Stop("no model available (tried %d models)" % len(cands))
+        ready = [m for m in live if cooldown.get(m, 0) <= now]
+        if not ready:
+            wait = min(cooldown[m] for m in live) - now
+            if now + wait - START > RUN_SECONDS:
+                raise Stop("all models resting until the time budget ends")
+            log("all models resting, waiting %ds" % max(5, wait))
+            time.sleep(min(max(wait, 5), 300))
             continue
+        model = ready[0]
         is_or = model.startswith("or:")
-        if is_or and not ORKEY:
-            dead_models.add(model); continue
-        if not is_or and not KEY:
-            dead_models.add(model); continue
-        for attempt in range(3):
-            if time.time() - START > RUN_SECONDS or calls >= MAX_CALLS:
-                raise Stop("time or call budget finished")
-            time.sleep(OR_GAP if is_or else GAP)
-            calls += 1
-            try:
-                txt = call_model(model, prompt, temperature)
-                res = parse_json(txt)
-                if model not in used_models:
-                    used_models.add(model); log("working model:", model)
-                return res
-            except urllib.error.HTTPError as e:
-                msg = e.read().decode("utf-8", "ignore")[:300]
-                low = msg.lower()
-                if e.code == 404:
-                    log("model unavailable:", model); dead_models.add(model); break
-                if e.code == 429:
-                    if "perday" in low or "per day" in low or "per-day" in low or "limit: 0" in low or "daily" in low:
-                        log("daily limit reached for", model); dead_models.add(model); break
-                    log("rate limited, waiting 65s"); time.sleep(65); continue
-                if e.code in (401, 402, 403):
-                    log("not allowed (%d) for %s, skipping it" % (e.code, model)); dead_models.add(model); break
-                if e.code >= 500:
-                    log("server error %d from %s, retrying" % (e.code, model)); time.sleep(20); continue
-                log("HTTP", e.code, msg); dead_models.add(model); break
-            except (ValueError, KeyError, IndexError, TypeError):
-                log("bad answer format from", model, "- retrying"); continue
-            except Exception as e:
-                log("network problem:", e); time.sleep(20); continue
-    raise Stop("no model available (tried %d models)" % len(cands))
+        time.sleep(OR_GAP if is_or else GAP)
+        calls += 1
+        try:
+            txt = call_model(model, prompt, temperature)
+            res = parse_json(txt)
+            fmt_fail[model] = 0
+            if model not in used_models:
+                used_models.add(model); log("working model:", model)
+            return res
+        except urllib.error.HTTPError as e:
+            msg = e.read().decode("utf-8", "ignore")[:3000]
+            low = msg.lower()
+            if e.code == 404:
+                log("model unavailable:", model); dead_models.add(model)
+            elif e.code == 429:
+                if "perday" in low or "per day" in low or "per-day" in low or "limit: 0" in low or "daily" in low:
+                    log("daily limit reached for", model); dead_models.add(model)
+                else:
+                    wait = min(retry_seconds(msg), 300) + 2
+                    log("rate limited: %s rests %ds, trying another model" % (model, wait))
+                    cooldown[model] = time.time() + wait
+            elif e.code in (401, 402, 403):
+                log("not allowed (%d) for %s, skipping it" % (e.code, model)); dead_models.add(model)
+            elif e.code >= 500:
+                log("server error %d from %s, it rests 45s" % (e.code, model))
+                cooldown[model] = time.time() + 45
+            else:
+                log("HTTP", e.code, msg[:200]); dead_models.add(model)
+        except (ValueError, KeyError, IndexError, TypeError):
+            fmt_fail[model] = fmt_fail.get(model, 0) + 1
+            log("bad answer format from", model)
+            if fmt_fail[model] >= 2:
+                fmt_fail[model] = 0
+                cooldown[model] = time.time() + 600
+        except Exception as e:
+            log("network problem with %s: %s - it rests 90s" % (model, e))
+            cooldown[model] = time.time() + 90
 
 
 def parse_json(txt):

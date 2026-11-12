@@ -8,7 +8,6 @@
     "gemini-3.5-flash"
   ],
   "verifier_models": [
-    "or:openrouter/free",
     "gemini-3.5-flash"
   ],
   "openrouter_gap": 4
