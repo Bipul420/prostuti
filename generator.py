@@ -72,7 +72,7 @@ def discover():
                 continue
             if "generateContent" not in m.get("supportedGenerationMethods", []):
                 continue
-            if any(b in n for b in ("image", "tts", "live", "embed", "audio", "robotics",
+            if any(b in n for b in ("image", "tts", "live", "embed", "audio", "robotics", "banana", "imagen", "veo", "nano", "omni",
                                     "computer", "vision", "learnlm", "thinking-exp")):
                 continue
             names.append(n)
@@ -146,7 +146,10 @@ def retry_seconds(msg):
     return float(m.group(1)) if m else 60.0
 
 
-def ask(models, prompt, temperature=0.7, role="gen"):
+last_ok = [None]
+
+
+def ask(models, prompt, temperature=0.7, role="gen", avoid=None):
     """Use the best model that is ready. A model that is rate limited or busy is
     put to rest and the next model is used at once. Raises Stop when nothing is left."""
     global calls
@@ -156,7 +159,7 @@ def ask(models, prompt, temperature=0.7, role="gen"):
     else:
         cands = [m for m in models if not m.startswith("or:")] + GEM_EXTRA
     seen = set()
-    cands = [m for m in cands if not (m in seen or seen.add(m))]
+    cands = [m for m in cands if not (m in seen or seen.add(m)) and m != avoid]
     while True:
         now = time.time()
         if now - START > RUN_SECONDS or calls >= MAX_CALLS:
@@ -186,6 +189,7 @@ def ask(models, prompt, temperature=0.7, role="gen"):
             txt = call_model(model, prompt, temperature)
             res = parse_json(txt)
             fmt_fail[model] = 0
+            last_ok[0] = model
             if model not in used_models:
                 used_models.add(model); log("working model:", model)
             return res
@@ -197,6 +201,10 @@ def ask(models, prompt, temperature=0.7, role="gen"):
             elif e.code == 429:
                 if "perday" in low or "per day" in low or "per-day" in low or "limit: 0" in low or "daily" in low:
                     log("daily limit reached for", model); dead_models.add(model)
+                    if is_or:  # all free OpenRouter models share one daily limit
+                        for m2 in cands:
+                            if m2.startswith("or:"):
+                                dead_models.add(m2)
                 else:
                     wait = min(retry_seconds(msg), 300) + 2
                     log("rate limited: %s rests %ds, trying another model" % (model, wait))
@@ -329,9 +337,9 @@ def verify_prompt(items):
             "[{\"id\":0,\"en\":2,\"bn\":2},...].\n" + json.dumps(rows, ensure_ascii=False))
 
 
-def solve_check(items):
+def solve_check(items, gen_model=None):
     """Keep only questions where an independent solver agrees with the key in EN and BN."""
-    res = ask(CFG["verifier_models"], verify_prompt(items), temperature=0.0, role="verify")
+    res = ask(CFG["verifier_models"], verify_prompt(items), temperature=0.0, role="verify", avoid=gen_model)
     got = {}
     for r in res if isinstance(res, list) else []:
         try:
@@ -378,20 +386,23 @@ def main():
             mix = "about 30% easy, 50% medium, 20% hard"
             existing = [q["en"] for q in data]
             raw = ask(CFG["generator_models"], gen_prompt(t, existing, need, mix), role="gen")
+            gen_model = last_ok[0]
             if not isinstance(raw, list):
                 raise Stop("generator returned non-list")
             fresh, rej = [], 0
+            r_rule = r_dup = 0
             seen_toks = [toks(q["en"]) for q in data]
             for q in raw:
                 if not isinstance(q, dict) or rule_check(q):
-                    rej += 1; continue
+                    rej += 1; r_rule += 1; continue
                 h = norm(q["bn"])
                 tk = toks(q["en"])
                 if h in allhash or any(jaccard(tk, x) >= 0.6 for x in seen_toks):
-                    rej += 1; continue
+                    rej += 1; r_dup += 1; continue
                 allhash.add(h); seen_toks.append(tk); fresh.append(q)
-            good = solve_check(fresh) if fresh else []
-            rej += len(fresh) - len(good)
+            good = solve_check(fresh, gen_model) if fresh else []
+            r_ver = len(fresh) - len(good)
+            rej += r_ver
             good = good[:max(0, target - len(data))]
             for q in good:
                 data.append({"t": t["t"], "tp": t["title"], "d": q["d"], "bn": q["bn"], "en": q["en"],
@@ -400,7 +411,8 @@ def main():
             state["made"] += len(good)
             state["rejected"] += rej
             save("state.json", state)
-            log("%s %s: +%d kept, %d rejected, total %d/%d" % (t["id"], t["title"], len(good), rej, len(data), target))
+            log("%s %s: +%d kept, %d rejected (format %d, duplicate %d, solver disagreed %d), total %d/%d" % (
+                t["id"], t["title"], len(good), rej, r_rule, r_dup, r_ver, len(data), target))
             stuck = stuck + 1 if not good else 0
             if stuck >= 6:  # this topic keeps failing, skip it for this round
                 log("skipping topic for now:", t["title"])
