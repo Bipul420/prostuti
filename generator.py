@@ -267,7 +267,18 @@ def clean_text(s):
     return re.sub(r"\s+", " ", str(s)).strip()
 
 
-def rule_check(q):
+def latin_words(x):
+    return len(re.findall(r"[A-Za-z]{2,}", x))
+
+
+def lang_problem(q, ttype=None):
+    """English fields must be pure English (English options in the Bangla options are allowed)."""
+    if has_bangla(q["en"]) or has_bangla(q["xe"]) or any(has_bangla(x) for x in q["oe"]):
+        return "bangla inside english fields"
+    return None
+
+
+def rule_check(q, ttype=None):
     try:
         for k in ("bn", "en", "ex", "xe"):
             q[k] = clean_text(q[k])
@@ -289,8 +300,12 @@ def rule_check(q):
             return "bangla text missing"
         if re.search(r"https?:|www\.", json.dumps(q, ensure_ascii=False)):
             return "link inside"
-        if re.search(r"(সব|উপরের সবগুলো|none of the above|all of the above)", " ".join(q["o"] + q["oe"]), re.I):
+        if any(re.match(r"\s*(সবগুলো|সবকটি|সবক’টি|উপরের (সব|কোনো)|কোনোটিই নয়|কোনটিই নয়|(all|none) of the (above|these))", x, re.I)
+               for x in q["o"] + q["oe"]):
             return "all/none option"
+        lang = lang_problem(q, ttype)
+        if lang:
+            return lang
         if q.get("d") not in ("e", "m", "h"):
             q["d"] = "m"
     except (KeyError, TypeError):
@@ -315,6 +330,13 @@ Rules:
 - Vary the sub-topics. Do not repeat or rephrase these existing questions:
 {stems}
 - Bangla fields must be natural, correct Bangla. English fields must be natural English.
+- Language rules: the English fields (en, oe, xe) must contain NO Bangla letters.
+  In the Bangla options (o), when an answer is a name, place, period, title, term or phrase
+  that has an English form, write the Bangla first and the English in brackets right after it,
+  e.g. "এলিজাবেথীয় যুগ (The Elizabethan Age)", "সালোকসংশ্লেষণ (Photosynthesis)".
+  Universal acronyms and technical terms (HTTP, FTP, DNA, CPU) stay as they are. Plain numbers,
+  years and calculated values get no brackets. For topics about the English language itself,
+  options may stay in English. The Bangla question (bn) may keep a key English term in brackets.
 - Explanation must show why the answer is right (for math show the working).
 
 Return ONLY a JSON array. Each item exactly:
@@ -349,6 +371,35 @@ def solve_check(items, gen_model=None):
     return [q for i, q in enumerate(items) if got.get(i) == (q["a"], q["a"])]
 
 
+
+CLEAN_VERSION = 2
+
+
+def clean_saved(topics, cache, state):
+    """One-time pass: drop saved questions that break the language rules (they get regenerated)."""
+    if state.get("clean", 0) >= CLEAN_VERSION:
+        return
+    removed = 0
+    for t in topics:
+        data = cache[t["id"]]
+        keep = []
+        for q in data:
+            try:
+                bad = lang_problem(q, t["t"])
+            except (KeyError, TypeError):
+                bad = "broken"
+            if bad:
+                removed += 1
+            else:
+                keep.append(q)
+        if len(keep) != len(data):
+            cache[t["id"]] = keep
+            save("questions/%s.json" % t["id"], keep)
+    state["clean"] = CLEAN_VERSION
+    save("state.json", state)
+    log("cleanup: removed %d saved questions with mixed languages" % removed)
+
+
 # ---------- main ----------
 def main():
     if not KEY:
@@ -357,14 +408,14 @@ def main():
     discover()
     topics = load("topics.json", [])
     state = load("state.json", {"round": 1, "cursor": 0, "made": 0, "rejected": 0})
-    # global exact-duplicate set
-    allhash = set()
-    qdir = os.path.join(ROOT, "questions")
     cache = {}
     for t in topics:
-        data = load("questions/%s.json" % t["id"], [])
-        cache[t["id"]] = data
-        for q in data:
+        cache[t["id"]] = load("questions/%s.json" % t["id"], [])
+    clean_saved(topics, cache, state)
+    # global exact-duplicate set
+    allhash = set()
+    for t in topics:
+        for q in cache[t["id"]]:
             allhash.add(norm(q["bn"]))
     log("topics:", len(topics), "round:", state["round"], "cursor:", state["cursor"])
     try:
@@ -393,7 +444,7 @@ def main():
             r_rule = r_dup = 0
             seen_toks = [toks(q["en"]) for q in data]
             for q in raw:
-                if not isinstance(q, dict) or rule_check(q):
+                if not isinstance(q, dict) or rule_check(q, t["t"]):
                     rej += 1; r_rule += 1; continue
                 h = norm(q["bn"])
                 tk = toks(q["en"])
