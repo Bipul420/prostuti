@@ -12,5 +12,7 @@
   ],
   "openrouter_gap": 4,
   "reports_csv_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRasUwyeSmdhT1jEQ9LRxqw1kvTR_yxi5wFvAnks7Iq45MUpCb3zfMI5-r1pgeMToFU7Mj36oarGArO/pub?gid=160428545&single=true&output=csv",
-  "report_threshold": 3
+  "report_threshold": 3,
+  "submissions_csv_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0WkIzaoLV9F5MBN55KfjpqIXFcdjgkBpkGGISqb9R7BSSY4X4ZlOscR1o5fbxDWmSRq10PAWYwP7P/pub?gid=630066366&single=true&output=csv",
+  "submissions_per_run": 15
 }

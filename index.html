@@ -552,5 +552,44 @@ if(!S.onb)obv(0);
   };
 })();
 </script>
+
+<script>
+/* ===== প্রশ্ন দিন: ইউজারের প্রশ্ন Google Form-এ জমা হয়, যাচাই পাস করলে সবার কুইজে যোগ হয় ===== */
+(function(){
+  var FORM2="https://docs.google.com/forms/d/e/1FAIpQLSdjrkyGXs4jBOu2Mu3e9PCH_6aVqcDttBfq7fRgHu_FXx2BXA/formResponse";
+  var E={tp:"entry.1941382166",q:"entry.998855414",a0:"entry.400520760",a1:"entry.1875122627",a2:"entry.31558013",a3:"entry.285883488",c:"entry.1196912804",ex:"entry.1858419829"};
+  var L=["ক","খ","গ","ঘ"];
+  if(typeof sub!=="function"||typeof addv!=="function"||typeof grab!=="function")return;
+  var _addv=addv;
+  window.addv=addv=function(){
+    return _addv().replace("নিজের লেখা প্রশ্ন দিন। সব চেক পার হলে অন্যরা ভোট দিয়ে চালু করবে। (ডেমো)","নিজের লেখা প্রশ্ন পাঠান। যাচাইয়ে পাস করলে প্রশ্নটা সবার কুইজে যোগ হবে।");
+  };
+  window.vote=vote=function(){};
+  window.sub=sub=function(){
+    grab();
+    var o=[0,1,2,3].map(function(i){return (D["a"+i]||"").trim()}),q=(D.aq||"").trim(),e=(D.ae||"").trim(),m="";
+    if(!D.tp)m="আগে বিষয় বাছো।";
+    else if(!q||!e||o.some(function(x){return !x}))m="সব ঘর পূরণ করো।";
+    else if(q.length<10)m="প্রশ্নটা আরও স্পষ্ট করে লেখো।";
+    else if(new Set(o.map(nz)).size<4)m="চারটা অপশন আলাদা হতে হবে।";
+    else if(/https?:|www\./i.test(q+o.join("")+e))m="লিংক দেওয়া যাবে না।";
+    else if(Q.some(function(x){return nz(x.bn)===nz(q)}))m="এই প্রশ্ন আগে থেকেই আছে।";
+    else if(navigator.onLine===false)m="প্রশ্ন পাঠাতে ইন্টারনেট চালু করো।";
+    if(!m){
+      var now=Date.now();S.subts=(S.subts||[]).filter(function(t){return now-t<86400000});
+      if(S.subts.length>=5)m="আজকের জন্য সর্বোচ্চ ৫টা প্রশ্ন পাঠানো যায়। কাল আবার চেষ্টা করো।";
+      else if(S.subts.length&&now-S.subts[S.subts.length-1]<20000)m="একটু অপেক্ষা করে আবার পাঠাও।";
+    }
+    if(m){MSG="❌ "+m;render();return}
+    var b=new URLSearchParams();
+    b.append(E.tp,D.tp);b.append(E.q,q);
+    for(var i=0;i<4;i++)b.append(E["a"+i],o[i]);
+    b.append(E.c,L[D.c||0]);b.append(E.ex,e);
+    try{fetch(FORM2,{method:"POST",mode:"no-cors",body:b}).catch(function(){})}catch(x){}
+    S.subts.push(Date.now());save();
+    D={};MSG="✅ জমা হয়েছে। যাচাইয়ে পাস করলে প্রশ্নটা চালু হবে (কয়েক ঘণ্টা লাগতে পারে)।";render();
+  };
+})();
+</script>
 </body>
 </html>
