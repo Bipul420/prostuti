@@ -11,6 +11,6 @@
     "gemini-3.5-flash"
   ],
   "openrouter_gap": 4,
-  "reports_csv_url": "",
+  "reports_csv_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRasUwyeSmdhT1jEQ9LRxqw1kvTR_yxi5wFvAnks7Iq45MUpCb3zfMI5-r1pgeMToFU7Mj36oarGArO/pub?gid=160428545&single=true&output=csv",
   "report_threshold": 3
 }
