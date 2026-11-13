@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Prostuti auto question generator.
+"""Prostuti auto question generator (v2).
 
-Flow per batch: generate -> rule checks -> dedupe -> independent solve check
-(English + Bangla) -> save. Topics rotate; after the last topic it restarts
-from the first and raises every topic's target by PER_TOPIC more questions.
+Flow per batch: pick sub-topic -> generate -> rule checks -> dedupe -> independent
+solve + on-topic check (English + Bangla) -> save. Output format is unchanged.
 Only Python standard library is used. API key comes from env GEMINI_API_KEY.
 """
-import csv, io, json, os, re, sys, time, hashlib, urllib.request, urllib.error
+import csv, io, json, os, random, re, sys, time, urllib.request, urllib.error
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CFG = json.load(open(os.path.join(ROOT, "config.json"), encoding="utf-8"))
@@ -18,6 +17,9 @@ GAP = float(CFG["seconds_between_calls"])
 OR_GAP = float(CFG.get("openrouter_gap", 4))
 PER_TOPIC = int(CFG["per_topic"])
 BATCH = int(CFG["batch_size"])
+LOW_KEEP = int(CFG.get("low_keep", 3))        # a batch keeping fewer than this is "low"
+LOW_LIMIT = int(CFG.get("low_batches", 3))    # this many low batches in a row -> skip topic
+GEN_TEMP = float(CFG.get("gen_temperature", 0.9))
 START = time.time()
 calls = 0
 dead_models = set()
@@ -59,8 +61,7 @@ def http_json(url, headers):
 
 
 def discover():
-    """Ask Gemini and OpenRouter which models exist today, so renamed or retired
-    models never stop the work."""
+    """Ask Gemini and OpenRouter which models exist today."""
     global GEM_EXTRA, OR_EXTRA
     try:
         data = http_json("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
@@ -139,6 +140,7 @@ def call_openrouter(model, prompt, temperature):
 
 cooldown = {}   # model -> time when it may be used again
 fmt_fail = {}
+err5 = {}       # model -> consecutive server errors (for exponential backoff)
 
 
 def retry_seconds(msg):
@@ -150,8 +152,8 @@ last_ok = [None]
 
 
 def ask(models, prompt, temperature=0.7, role="gen", avoid=None):
-    """Use the best model that is ready. A model that is rate limited or busy is
-    put to rest and the next model is used at once. Raises Stop when nothing is left."""
+    """Use the best model that is ready. A busy model rests (growing backoff) and the
+    next model is used at once. Raises Stop when nothing is left."""
     global calls
     if role == "verify":
         cands = [m for m in models if m.startswith("or:")] + OR_EXTRA + \
@@ -159,7 +161,8 @@ def ask(models, prompt, temperature=0.7, role="gen", avoid=None):
     else:
         cands = [m for m in models if not m.startswith("or:")] + GEM_EXTRA
     seen = set()
-    cands = [m for m in cands if not (m in seen or seen.add(m)) and m != avoid]
+    av = set(avoid) if isinstance(avoid, (list, set, tuple)) else {avoid}
+    cands = [m for m in cands if not (m in seen or seen.add(m)) and m not in av]
     while True:
         now = time.time()
         if now - START > RUN_SECONDS or calls >= MAX_CALLS:
@@ -189,6 +192,7 @@ def ask(models, prompt, temperature=0.7, role="gen", avoid=None):
             txt = call_model(model, prompt, temperature)
             res = parse_json(txt)
             fmt_fail[model] = 0
+            err5[model] = 0
             last_ok[0] = model
             if model not in used_models:
                 used_models.add(model); log("working model:", model)
@@ -201,7 +205,7 @@ def ask(models, prompt, temperature=0.7, role="gen", avoid=None):
             elif e.code == 429:
                 if "perday" in low or "per day" in low or "per-day" in low or "limit: 0" in low or "daily" in low:
                     log("daily limit reached for", model); dead_models.add(model)
-                    if is_or:  # all free OpenRouter models share one daily limit
+                    if is_or:
                         for m2 in cands:
                             if m2.startswith("or:"):
                                 dead_models.add(m2)
@@ -212,8 +216,11 @@ def ask(models, prompt, temperature=0.7, role="gen", avoid=None):
             elif e.code in (401, 402, 403):
                 log("not allowed (%d) for %s, skipping it" % (e.code, model)); dead_models.add(model)
             elif e.code >= 500:
-                log("server error %d from %s, it rests 45s" % (e.code, model))
-                cooldown[model] = time.time() + 45
+                n = err5.get(model, 0) + 1
+                err5[model] = n
+                wait = min(10 * (2 ** (n - 1)), 120)   # 10s, 20s, 40s, 80s, 120s
+                log("server error %d from %s, it rests %ds" % (e.code, model, wait))
+                cooldown[model] = time.time() + wait
             else:
                 log("HTTP", e.code, msg[:200]); dead_models.add(model)
         except (ValueError, KeyError, IndexError, TypeError):
@@ -271,12 +278,12 @@ def clean_text(s):
     return re.sub(r"\s+", " ", str(s)).strip()
 
 
-def latin_words(x):
-    return len(re.findall(r"[A-Za-z]{2,}", x))
+def ctx(t):
+    """Full topic path, e.g. 'ভর্তি ও ডিগ্রি > বিশ্ববিদ্যালয় ভর্তি > ঢাকা'."""
+    return " > ".join(p for p in (t.get("section"), t.get("group"), t["title"]) if p)
 
 
 def lang_problem(q, ttype=None):
-    """English fields must be pure English (English options in the Bangla options are allowed)."""
     if has_bangla(q["en"]) or has_bangla(q["xe"]) or any(has_bangla(x) for x in q["oe"]):
         return "bangla inside english fields"
     return None
@@ -317,12 +324,50 @@ def rule_check(q, ttype=None):
     return None
 
 
+# ---------- sub-topics (one call per topic, saved in state.json) ----------
+def get_subs(t, state):
+    subs = state.setdefault("subs", {})
+    if t["id"] in subs:
+        return subs[t["id"]]
+    p = f"""Exam/learning topic for Bangladeshi learners. Full path: "{ctx(t)}".
+Use the full path to understand what the short title means.
+List 16 distinct, specific sub-topics (chapters / areas / question angles) that a quiz on
+this exact topic should cover, so that questions never overlap. Stay strictly inside this topic.
+Return ONLY a JSON array of 16 short English strings."""
+    res = ask(CFG["generator_models"], p, temperature=0.4, role="gen")
+    lst = [clean_text(x) for x in res if isinstance(x, str)] if isinstance(res, list) else []
+    subs[t["id"]] = lst[:20]
+    save("state.json", state)
+    return subs[t["id"]]
+
+
+def next_sub(t, state):
+    subs = state.get("subs", {}).get(t["id"], [])
+    if not subs:
+        return ""
+    cur = state.setdefault("subcur", {})
+    i = cur.get(t["id"], random.randrange(len(subs)))
+    cur[t["id"]] = i + 1
+    return subs[i % len(subs)]
+
+
 # ---------- prompts ----------
-def gen_prompt(topic, existing, n, mix):
-    stems = "\n".join("- " + x for x in existing[-60:]) or "(none yet)"
+def gen_prompt(topic, existing, n, mix, sub=""):
+    pool = list(existing)
+    random.shuffle(pool)
+    stems = "\n".join("- " + x for x in pool[:100]) or "(none yet)"
+    focus = ("Focus of THIS batch: \"%s\". Write all questions about this sub-topic, each on a "
+             "different point." % sub) if sub else "Spread the questions over different parts of the topic."
     return f"""You write high quality multiple-choice exam questions for Bangladeshi learners.
-Topic: "{topic['title']}" (group: "{topic['group']}").
+Topic title: "{topic['title']}"
+Full topic path: "{ctx(topic)}"
+Use the full path to understand what the title means (for example a university name under
+"university admission" means that university's admission test, not general facts about the city).
 Write {n} NEW questions. Difficulty mix: {mix}.
+{focus}
+
+STRICT SCOPE: every question must clearly belong to THIS topic as exam or learning content.
+Never write questions that belong to another topic or subject, even if loosely related.
 
 Rules:
 - Original questions only. Do not copy past exam papers word for word.
@@ -331,7 +376,7 @@ Rules:
   (current office holders, latest prices, "recent", "latest", "current", dated statistics).
   If you are not very sure of a fact, do not ask about it.
 - No "all of the above" / "none of the above" options.
-- Vary the sub-topics. Do not repeat or rephrase these existing questions:
+- Each question must test a different fact or idea. Do not repeat or rephrase any of these existing questions:
 {stems}
 - Bangla fields must be natural, correct Bangla. English fields must be natural English.
 - Language rules: the English fields (en, oe, xe) must contain NO Bangla letters.
@@ -350,37 +395,83 @@ Return ONLY a JSON array. Each item exactly:
 "a" is the 0-based index of the correct option (spread the correct position across 0..3)."""
 
 
-def verify_prompt(items):
+def verify_prompt(items, topic):
     rows = []
     for i, q in enumerate(items):
         rows.append({"id": i,
                      "english": {"question": q["en"], "options": q["oe"]},
                      "bangla": {"question": q["bn"], "options": q["o"]}})
-    return ("You are a strict exam checker. For each item solve BOTH the English and the Bangla "
-            "version yourself, carefully, before answering. Give the 0-based index of the single "
-            "best option for each, or -1 if that version is ambiguous, has no correct option, has "
-            "more than one correct option, or you are not sure. Return ONLY a JSON array like "
-            "[{\"id\":0,\"en\":2,\"bn\":2},...].\n" + json.dumps(rows, ensure_ascii=False))
+    return ("You are a strict exam checker. Topic of the quiz: \"%s\" (full path: \"%s\").\n"
+            "For each item solve BOTH the English and the Bangla version yourself, carefully, before "
+            "answering. Give the 0-based index of the single best option for each, or -1 if that "
+            "version is ambiguous, has no correct option, has more than one correct option, or you "
+            "are not sure. Also give \"ok\": 1 if the question truly belongs to this topic, or 0 if it "
+            "is really about a different subject. Return ONLY a JSON array like "
+            "[{\"id\":0,\"en\":2,\"bn\":2,\"ok\":1},...].\n" % (topic["title"], ctx(topic))
+            + json.dumps(rows, ensure_ascii=False))
 
 
-def solve_check(items, gen_model=None):
-    """Keep only questions where an independent solver agrees with the key in EN and BN."""
-    res = ask(CFG["verifier_models"], verify_prompt(items), temperature=0.0, role="verify", avoid=gen_model)
+def _verify_once(items, avoid, topic):
+    res = ask(CFG["verifier_models"], verify_prompt(items, topic), temperature=0.0, role="verify", avoid=avoid)
     got = {}
     for r in res if isinstance(res, list) else []:
         try:
-            got[int(r["id"])] = (int(r["en"]), int(r["bn"]))
-        except (KeyError, ValueError, TypeError):
+            ok = str(r.get("ok", 1)).strip().lower() not in ("0", "false")
+            got[int(r["id"])] = (int(r["en"]), int(r["bn"]), ok)
+        except (KeyError, ValueError, TypeError, AttributeError):
             pass
-    return [q for i, q in enumerate(items) if got.get(i) == (q["a"], q["a"])]
+    kept, off = [], 0
+    for i, q in enumerate(items):
+        g = got.get(i)
+        if not g or (g[0], g[1]) != (q["a"], q["a"]):
+            continue
+        if not g[2]:
+            off += 1
+            continue
+        kept.append(q)
+    return kept, off
 
+
+def solve_check(items, gen_model, topic):
+    """Returns (kept, off_topic_count). A question is kept only if TWO different models
+    (other than the generator) agree with the key in EN and BN and say it fits the topic."""
+    kept, off = _verify_once(items, [gen_model], topic)
+    if kept and CFG.get("double_check", True):
+        v1 = last_ok[0]
+        try:
+            kept, off2 = _verify_once(kept, [gen_model, v1], topic)
+            off += off2
+        except Stop as e:
+            if "no model available" not in str(e):
+                raise
+    return kept, off
+
+
+RESET_VERSION = int(CFG.get("reset_version", 0))
+
+
+def reset_all(topics, cache, state):
+    """One-time wipe (set reset_version in config.json). Removes all generated questions,
+    keeps user-submitted ones, sub-topics, blocked list and report counters."""
+    if state.get("reset", 0) >= RESET_VERSION:
+        return
+    removed = 0
+    for t in topics:
+        data = cache[t["id"]]
+        keep = [q for q in data if q.get("u")]
+        removed += len(data) - len(keep)
+        cache[t["id"]] = keep
+        save("questions/%s.json" % t["id"], keep)
+    state.update({"round": 1, "cursor": 0, "made": 0, "rejected": 0, "reset": RESET_VERSION, "subcur": {}})
+    save("state.json", state)
+    log("RESET: removed %d old questions, starting fresh" % removed)
 
 
 CLEAN_VERSION = 2
 
 
 def clean_saved(topics, cache, state):
-    """One-time pass: drop saved questions that break the language rules (they get regenerated)."""
+    """One-time pass: drop saved questions that break the language rules."""
     if state.get("clean", 0) >= CLEAN_VERSION:
         return
     removed = 0
@@ -412,8 +503,7 @@ def fetch_csv(url):
 
 
 def process_reports(topics, cache, state):
-    """Read users' mistake reports (published Google Sheet). A question reported
-    report_threshold times is removed, blocked from coming back, and gets replaced."""
+    """Users' mistake reports: a question reported report_threshold times is removed and blocked."""
     url = str(CFG.get("reports_csv_url", "")).strip()
     if not url:
         return
@@ -482,8 +572,7 @@ Return ONLY one JSON object:
 
 
 def process_submissions(topics, cache, state, allhash):
-    """Questions sent by users through the Google Form: complete both languages, run the
-    same checks as generated questions, and add them if they pass."""
+    """Questions sent by users through the Google Form."""
     url = str(CFG.get("submissions_csv_url", "")).strip()
     if not url:
         return
@@ -527,7 +616,7 @@ def process_submissions(topics, cache, state, allhash):
             data = cache[t["id"]]
             if h in allhash or any(jaccard(tk, toks(x["en"])) >= 0.6 for x in data):
                 bad += 1; continue
-            if not solve_check([out], gen_model):
+            if not solve_check([out], gen_model, t)[0]:
                 bad += 1; continue
             allhash.add(h)
             data.append({"t": t["t"], "tp": t["title"], "d": out["d"], "bn": out["bn"], "en": out["en"],
@@ -553,9 +642,9 @@ def main():
     cache = {}
     for t in topics:
         cache[t["id"]] = load("questions/%s.json" % t["id"], [])
+    reset_all(topics, cache, state)
     clean_saved(topics, cache, state)
     process_reports(topics, cache, state)
-    # global exact-duplicate set
     allhash = set()
     for t in topics:
         for q in cache[t["id"]]:
@@ -565,7 +654,7 @@ def main():
     process_submissions(topics, cache, state, allhash)
     log("topics:", len(topics), "round:", state["round"], "cursor:", state["cursor"])
     try:
-        stuck = 0
+        low = 0
         while True:
             if state["cursor"] >= len(topics):
                 state["round"] += 1
@@ -576,13 +665,16 @@ def main():
             target = PER_TOPIC * state["round"]
             if len(data) >= target:
                 state["cursor"] += 1
-                stuck = 0
+                low = 0
                 save("state.json", state)
                 continue
             need = min(BATCH, target - len(data))
             mix = "about 30% easy, 50% medium, 20% hard"
+            get_subs(t, state)
+            sub = next_sub(t, state)
             existing = [q["en"] for q in data]
-            raw = ask(CFG["generator_models"], gen_prompt(t, existing, need, mix), role="gen")
+            raw = ask(CFG["generator_models"], gen_prompt(t, existing, need, mix, sub),
+                      temperature=GEN_TEMP, role="gen")
             gen_model = last_ok[0]
             if not isinstance(raw, list):
                 raise Stop("generator returned non-list")
@@ -597,9 +689,11 @@ def main():
                 if h in allhash or any(jaccard(tk, x) >= 0.6 for x in seen_toks):
                     rej += 1; r_dup += 1; continue
                 allhash.add(h); seen_toks.append(tk); fresh.append(q)
-            good = solve_check(fresh, gen_model) if fresh else []
-            r_ver = len(fresh) - len(good)
-            rej += r_ver
+            good, r_off = ([], 0)
+            if fresh:
+                good, r_off = solve_check(fresh, gen_model, t)
+            r_ver = len(fresh) - len(good) - r_off
+            rej += r_ver + r_off
             good = good[:max(0, target - len(data))]
             for q in good:
                 data.append({"t": t["t"], "tp": t["title"], "d": q["d"], "bn": q["bn"], "en": q["en"],
@@ -608,13 +702,13 @@ def main():
             state["made"] += len(good)
             state["rejected"] += rej
             save("state.json", state)
-            log("%s %s: +%d kept, %d rejected (format %d, duplicate %d, solver disagreed %d), total %d/%d" % (
-                t["id"], t["title"], len(good), rej, r_rule, r_dup, r_ver, len(data), target))
-            stuck = stuck + 1 if not good else 0
-            if stuck >= 6:  # this topic keeps failing, skip it for this round
-                log("skipping topic for now:", t["title"])
+            log("%s %s [%s]: +%d kept, %d rejected (format %d, duplicate %d, solver %d, off-topic %d), total %d/%d" % (
+                t["id"], t["title"], sub[:30], len(good), rej, r_rule, r_dup, r_ver, r_off, len(data), target))
+            low = low + 1 if len(good) < LOW_KEEP else 0
+            if low >= LOW_LIMIT:   # topic is mostly exhausted, move on for now
+                log("skipping topic for now (low yield):", t["title"])
                 state["cursor"] += 1
-                stuck = 0
+                low = 0
                 save("state.json", state)
     except Stop as e:
         log("stopping:", e)
