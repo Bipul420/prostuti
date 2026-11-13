@@ -1,4 +1,4 @@
-{
+{"reset_version": 1,
   "per_topic": 150,
   "batch_size": 10,
   "seconds_between_calls": 7,
