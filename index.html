@@ -503,5 +503,54 @@ if(!S.onb)obv(0);
   };
 })();
 </script>
+
+<script>
+/* ===== ভুলের রিপোর্ট: ইউজার কারণ বেছে পাঠালে Google Form-এ জমা হয় ===== */
+(function(){
+  var FORM="https://docs.google.com/forms/d/e/1FAIpQLScEXqb9QYUFAj_CBEI9pGg-QkJWOE6C9nIeeJqg9p4sHHXoug/formResponse";
+  var REASONS=["উত্তর ভুল","প্রশ্ন অস্পষ্ট","বানান বা ভাষার ভুল","অন্য কিছু"];
+  if(typeof rep!=="function")return;
+  function send(q,reason){
+    var b=new URLSearchParams();
+    b.append("entry.1888229798",q.bn);
+    b.append("entry.1659493438",reason);
+    b.append("entry.892843583",q.tp||"");
+    try{fetch(FORM,{method:"POST",mode:"no-cors",body:b}).catch(function(){})}catch(e){}
+  }
+  function sheet(q){
+    var old=document.getElementById("rsheet");if(old)old.remove();
+    var w=document.createElement("div");w.id="rsheet";
+    w.style.cssText="position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:flex-end;justify-content:center";
+    var c=document.createElement("div");
+    c.style.cssText="background:#fff;color:#111;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px 16px 24px;box-sizing:border-box";
+    var t=document.createElement("div");t.textContent="কী ভুল আছে?";t.style.cssText="font-weight:700;font-size:18px;margin-bottom:12px";
+    c.appendChild(t);
+    REASONS.forEach(function(r){
+      var b=document.createElement("button");b.textContent=r;
+      b.style.cssText="display:block;width:100%;text-align:left;padding:13px 14px;margin:0 0 8px;border:1.5px solid #c9d1f5;border-radius:12px;background:#f4f6ff;color:#111;font-size:16px;font-family:inherit";
+      b.onclick=function(){
+        send(q,r);
+        try{S.fbk.push({q:q.bn,v:-9});save()}catch(e){}
+        w.remove();toast("ভুলের রিপোর্ট জমা হয়েছে, ধন্যবাদ");
+      };
+      c.appendChild(b);
+    });
+    var x=document.createElement("button");x.textContent="বাতিল";
+    x.style.cssText="display:block;width:100%;padding:12px;border:0;border-radius:12px;background:#eee;color:#111;font-size:16px;font-family:inherit";
+    x.onclick=function(){w.remove()};
+    c.appendChild(x);w.appendChild(c);
+    w.addEventListener("click",function(e){if(e.target===w)w.remove()});
+    document.body.appendChild(w);
+  }
+  window.rep=rep=function(){
+    var q=quiz&&quiz.list&&quiz.list[quiz.i];
+    if(!q)return;
+    var done=false;try{done=S.fbk.some(function(x){return x.q===q.bn&&x.v===-9})}catch(e){}
+    if(done){toast("এই প্রশ্নের রিপোর্ট আগেই জমা হয়েছে");return}
+    if(navigator.onLine===false){toast("রিপোর্ট পাঠাতে ইন্টারনেট চালু করুন");return}
+    sheet(q);
+  };
+})();
+</script>
 </body>
 </html>

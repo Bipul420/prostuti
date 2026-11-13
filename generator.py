@@ -6,7 +6,7 @@ Flow per batch: generate -> rule checks -> dedupe -> independent solve check
 from the first and raises every topic's target by PER_TOPIC more questions.
 Only Python standard library is used. API key comes from env GEMINI_API_KEY.
 """
-import json, os, re, sys, time, hashlib, urllib.request, urllib.error
+import csv, io, json, os, re, sys, time, hashlib, urllib.request, urllib.error
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CFG = json.load(open(os.path.join(ROOT, "config.json"), encoding="utf-8"))
@@ -245,7 +245,7 @@ BN = str.maketrans("০১২৩৪৫৬৭৮৯", "0123456789")
 
 def norm(s):
     s = str(s).translate(BN).lower()
-    return re.sub(r"[^\w]+", "", s)
+    return re.sub(r"[^\w\u0980-\u09FF]+", "", s)
 
 
 def toks(s):
@@ -400,6 +400,54 @@ def clean_saved(topics, cache, state):
     log("cleanup: removed %d saved questions with mixed languages" % removed)
 
 
+def fetch_csv(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "prostuti-bot"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        text = r.read().decode("utf-8-sig", "replace")
+    return list(csv.reader(io.StringIO(text)))
+
+
+def process_reports(topics, cache, state):
+    """Read users' mistake reports (published Google Sheet). A question reported
+    report_threshold times is removed, blocked from coming back, and gets replaced."""
+    url = str(CFG.get("reports_csv_url", "")).strip()
+    if not url:
+        return
+    try:
+        rows = fetch_csv(url)[1:]
+    except Exception as e:
+        log("could not read reports:", e)
+        return
+    seen = int(state.get("reports_seen", 0))
+    new = rows[seen:seen + 300]
+    if not new:
+        return
+    counts = state.setdefault("report_counts", {})
+    blocked = state.setdefault("blocked", [])
+    for row in new:
+        if len(row) > 1 and norm(row[1]):
+            k = norm(row[1])
+            counts[k] = counts.get(k, 0) + 1
+    state["reports_seen"] = seen + len(new)
+    threshold = int(CFG.get("report_threshold", 3))
+    index = {}
+    for t in topics:
+        for q in cache[t["id"]]:
+            index[norm(q["bn"])] = t["id"]
+    removed = 0
+    for k, n in list(counts.items()):
+        if n >= threshold and k in index:
+            tid = index[k]
+            cache[tid] = [q for q in cache[tid] if norm(q["bn"]) != k]
+            save("questions/%s.json" % tid, cache[tid])
+            if k not in blocked:
+                blocked.append(k)
+            del counts[k]
+            removed += 1
+    save("state.json", state)
+    log("reports: %d new, %d questions removed" % (len(new), removed))
+
+
 # ---------- main ----------
 def main():
     if not KEY:
@@ -412,11 +460,14 @@ def main():
     for t in topics:
         cache[t["id"]] = load("questions/%s.json" % t["id"], [])
     clean_saved(topics, cache, state)
+    process_reports(topics, cache, state)
     # global exact-duplicate set
     allhash = set()
     for t in topics:
         for q in cache[t["id"]]:
             allhash.add(norm(q["bn"]))
+    for k in state.get("blocked", []):
+        allhash.add(k)
     log("topics:", len(topics), "round:", state["round"], "cursor:", state["cursor"])
     try:
         stuck = 0

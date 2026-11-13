@@ -10,5 +10,7 @@
   "verifier_models": [
     "gemini-3.5-flash"
   ],
-  "openrouter_gap": 4
+  "openrouter_gap": 4,
+  "reports_csv_url": "",
+  "report_threshold": 3
 }
