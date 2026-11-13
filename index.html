@@ -459,18 +459,22 @@ if(!S.onb)obv(0);
 </script>
 
 <script>
-/* ===== প্রশ্ন অটো-লোড: বিষয় বেছে নিলে GitHub থেকে নতুন প্রশ্ন নামে ===== */
+/* ===== প্রশ্ন অনলাইনে লোড: বিষয় বাছলে GitHub থেকে প্রশ্ন নামে (ফোনে স্থায়ী জমা হয় না) ===== */
 (function(){
-  var QBASE="https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO_NAME/"; /* <-- এখানে নিজের ঠিকানা বসবে */
-  if(QBASE.indexOf("YOUR_")>-1||typeof start!=="function"||typeof Q==="undefined")return;
-  var _start=start, idMap=null, mapP=null, done={}, busy=false;
-  function getJSON(url){return fetch(url,{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return r.json()})}
+  var QBASE="https://bipul420.github.io/prostuti/";
+  if(typeof start!=="function"||typeof Q==="undefined")return;
+  var _start=start, idMap=null, done={}, busy=false;
+  function getJSON(url){
+    return fetch(url,{cache:"no-cache"}).then(function(r){
+      if(!r.ok)throw "http";
+      return r.json();
+    },function(){throw "net"});
+  }
   function topicId(title){
     if(idMap)return Promise.resolve(idMap[title]);
-    if(!mapP)mapP=getJSON(QBASE+"topics.json").then(function(a){idMap={};a.forEach(function(t){idMap[t.title]=t.id});
-      try{localStorage.setItem("qb_map",JSON.stringify(idMap))}catch(e){} return idMap}).catch(function(){
-      try{idMap=JSON.parse(localStorage.getItem("qb_map")||"null")}catch(e){} if(!idMap)mapP=null; return idMap});
-    return mapP.then(function(m){return m&&m[title]});
+    return getJSON(QBASE+"topics.json").then(function(a){
+      idMap={};a.forEach(function(t){idMap[t.title]=t.id});return idMap[title];
+    });
   }
   function addQs(arr){
     var have={};Q.forEach(function(q){have[qid(q)]=1});
@@ -481,21 +485,21 @@ if(!S.onb)obv(0);
   function load(title){
     return topicId(title).then(function(id){
       if(!id||done[id])return;
-      var key="qb_"+id;
-      return getJSON(QBASE+"questions/"+id+".json").then(function(arr){
-        addQs(arr);done[id]=1;
-        try{localStorage.setItem(key,JSON.stringify(arr))}catch(e){}
-      }).catch(function(){
-        try{var c=JSON.parse(localStorage.getItem(key)||"null");if(c){addQs(c);done[id]=1}}catch(e){}
-      });
+      return getJSON(QBASE+"questions/"+id+".json").then(function(arr){addQs(arr);done[id]=1},
+        function(e){if(e==="net")throw e;/* এই বিষয়ের ফাইল এখনও তৈরি হয়নি */});
     });
   }
+  function say(m){try{toast(m)}catch(e){alert(m)}}
   window.start=start=function(title,keys,n,ids){
-    var a=arguments;
-    if(ids||!title||busy)return _start.apply(this,a);
+    var a=arguments, self=this;
+    if(ids||!title||busy)return _start.apply(self,a);
     busy=true;
-    var t=setTimeout(function(){try{toast("প্রশ্ন লোড হচ্ছে…")}catch(e){}},700);
-    load(title).catch(function(){}).then(function(){clearTimeout(t);busy=false;_start.apply(null,a)});
+    var t=setTimeout(function(){say("প্রশ্ন লোড হচ্ছে…")},700);
+    load(title).then(function(){clearTimeout(t);busy=false;_start.apply(null,a)},function(e){
+      clearTimeout(t);busy=false;
+      if(e==="net")say("প্রশ্ন পেতে ইন্টারনেট চালু করুন");
+      else _start.apply(null,a);
+    });
   };
 })();
 </script>
