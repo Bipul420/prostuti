@@ -1,0 +1,19 @@
+{
+  "per_topic": 150,
+  "batch_size": 10,
+  "seconds_between_calls": 7,
+  "run_minutes": 150,
+  "max_calls_per_run": 400,
+  "generator_models": [
+    "gemini-3.5-flash"
+  ],
+  "verifier_models": [
+    "gemini-3.5-flash"
+  ],
+  "openrouter_gap": 4,
+  "reports_csv_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRasUwyeSmdhT1jEQ9LRxqw1kvTR_yxi5wFvAnks7Iq45MUpCb3zfMI5-r1pgeMToFU7Mj36oarGArO/pub?gid=160428545&single=true&output=csv",
+  "report_threshold": 3,
+  "submissions_csv_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0WkIzaoLV9F5MBN55KfjpqIXFcdjgkBpkGGISqb9R7BSSY4X4ZlOscR1o5fbxDWmSRq10PAWYwP7P/pub?gid=630066366&single=true&output=csv",
+  "submissions_per_run": 15,
+  "ready_min": 30
+}
