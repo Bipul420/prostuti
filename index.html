@@ -297,7 +297,7 @@ function ttsHelp(m){if((ttsShown&&!m)||document.getElementById("ttsh"))return;tt
   +'<div style="margin-top:10px"><b>অ্যান্ড্রয়েড:</b><br>১. সেটিংস → ভাষা ও ইনপুট (বা সাধারণ ব্যবস্থাপনা) → টেক্সট-টু-স্পিচ<br>২. Google Text-to-speech বেছে নিন → ভয়েস ডেটা ইনস্টল করুন<br>৩. তালিকা থেকে <b>বাংলা (বাংলাদেশ)</b> বা <b>বাংলা (ভারত)</b> ডাউনলোড করুন<br>৪. অ্যাপ বন্ধ করে আবার খুলুন</div>'
   +'<div style="margin-top:10px"><b>আইফোন:</b><br>১. সেটিংস → অ্যাক্সেসিবিলিটি → Spoken Content → Voices<br>২. Bengali বেছে নিয়ে ভয়েস ডাউনলোড করুন<br>৩. অ্যাপ বন্ধ করে আবার খুলুন</div>'
   +'<div style="margin-top:10px;opacity:.75">ততক্ষণ চাইলে প্রশ্নটি ইংরেজিতে করে ইংরেজি ভয়েসে শুনতে পারেন।</div>'
-  +'<button style="margin-top:14px;width:100%;padding:12px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-size:16px;font-weight:700" onclick="document.getElementById(\'ttsh\').remove()">ঠিক আছে</button></div>';
+  +'<button style="margin-top:14px;width:100%;padding:12px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-size:16px;font-weight:700" onclick="document.getElementById(\'ttsh\').remove()">ঠিক আছে</button></div>';if(window.isEn&&isEn())d.innerHTML=window.TTSEN;
   document.body.appendChild(d)}
 function qt(){S.timer=!S.timer;save();if(S.timer&&quiz&&!quiz.done&&quiz.sel===null)tick();else clearInterval(tm);render()}
 function qv(){S.speak=!S.speak;save();if(!S.speak){try{speechSynthesis.cancel()}catch(e){}}render()}
@@ -382,13 +382,13 @@ function saveq(){var id=qid(quiz.list[quiz.i]);if(S.saved[id])delete S.saved[id]
 function olib(){LM="saved";go("lib")}
 function libcard(){var a=Object.keys(S.saved).length,b=Object.keys(S.seen).length;return '<button class="card row" style="width:100%;text-align:left;margin-top:12px" onclick="olib()"><div><b style="font-size:18px">📚 আমার সংগ্রহ</b><div class="sm">⭐ '+bd(a)+' সেভ করা · ✓ '+bd(b)+' দেখা</div></div><span>›</span></button>'}
 function match(q,t){t=t.toLowerCase();return !t||(q.bn+" "+q.en+" "+q.o.join(" ")).toLowerCase().indexOf(t)>-1}
-function lrows(){var L=Q.filter(function(q){var id=qid(q);return (LM==="all"||(LM==="saved"?S.saved[id]:S.seen[id]))&&match(q,LQ)}),lt=["ক","খ","গ","ঘ"];return L.length?L.slice(0,50).map(function(q){var id=qid(q);return '<div class="card" style="margin-bottom:10px"><b>'+q.bn+'</b><div class="sm" style="margin:6px 0">'+q.o.map(function(o,i){return lt[i]+") "+bd(o)}).join(" · ")+'</div><div class="ex" style="margin:6px 0"><b>সঠিক: '+lt[q.a]+'।</b> '+q.ex+'</div><button class="ob" data-i="'+id+'" onclick="lsv(this.dataset.i)">'+(S.saved[id]?"⭐ সেভ করা":"☆ সেভ করো")+'</button></div>'}).join(""):'<p class="sm">কিছু পাওয়া যায়নি।'+(LM!=="all"?" ওপরে 'সব প্রশ্ন' বেছে খুঁজে দেখো।":"")+'</p>'}
+function lrows(){var L=Q.filter(function(q){var id=qid(q);return (LM==="all"||(LM==="saved"?S.saved[id]:S.seen[id]))&&match(q,LQ)}),lt=["ক","খ","গ","ঘ"];return L.length?L.slice(0,50).map(function(q){var id=qid(q);return '<div class="card" style="margin-bottom:10px"><b>'+(S.lang==="en"?q.en:q.bn)+'</b><div class="sm" style="margin:6px 0">'+q.o.map(function(o,i){return S.lang==="en"?"ABCD"[i]+") "+(q.oe?q.oe[i]:o):lt[i]+") "+bd(o)}).join(" · ")+'</div><div class="ex" style="margin:6px 0"><b>'+(S.lang==="en"?"Correct: "+"ABCD"[q.a]+".":"সঠিক: "+lt[q.a]+"।")+'</b> '+(S.lang==="en"?q.xe:q.ex)+'</div><button class="ob" data-i="'+id+'" onclick="lsv(this.dataset.i)">'+(S.saved[id]?"⭐ সেভ করা":"☆ সেভ করো")+'</button></div>'}).join(""):'<p class="sm">কিছু পাওয়া যায়নি।'+(LM!=="all"?" ওপরে 'সব প্রশ্ন' বেছে খুঁজে দেখো।":"")+'</p>'}
 function libv(){return '<h1>আমার সংগ্রহ</h1><input type="text" id="lq" placeholder="প্রশ্ন খোঁজো (যেকোনো শব্দ লেখো)" oninput="flib()" value="'+esc(LQ)+'">'+seg([["saved","⭐ সেভ করা"],["seen","✓ দেখা"],["all","সব প্রশ্ন"]],LM,"lm")+'<div style="height:12px"></div><div id="ll">'+lrows()+'</div><div class="row" style="margin-top:8px">'+(Object.keys(S.seen).length?'<button class="ob" onclick="rseen()">↺ দেখা প্রশ্ন রিসেট</button>':'')+(Object.keys(S.saved).length?'<button class="btn" onclick="qsaved()">সেভ করা দিয়ে কুইজ</button>':'')+'</div>'}
 function flib(){LQ=document.getElementById("lq").value;document.getElementById("ll").innerHTML=lrows()}
 function lm(v){LM=v;render()}
 function lsv(id){if(S.saved[id])delete S.saved[id];else S.saved[id]=1;save();render()}
 var CHC="",CHQ=null;
-function chal(){CHQ=quiz;var ids=quiz.list.map(function(q){return qid(q).slice(1)});CHC="CH"+btoa(quiz.score+"|"+ids.join(",")).replace(/=/g,"");var t="⚔️ আমি Simple Quiz-এ "+bd(quiz.score)+"/"+bd(quiz.list.length)+" পেয়েছি। পারলে হারাও!\nচ্যালেঞ্জ কোড: "+CHC;try{if(navigator.share)navigator.share({text:t});else navigator.clipboard.writeText(t).catch(function(){})}catch(e){}render()}
+function chal(){CHQ=quiz;var ids=quiz.list.map(function(q){return qid(q).slice(1)});CHC="CH"+btoa(quiz.score+"|"+ids.join(",")).replace(/=/g,"");var t=(isEn()?"⚔️ I scored "+quiz.score+"/"+quiz.list.length+" on Simple Quiz. Beat me if you can!\nChallenge code: ":"⚔️ আমি Simple Quiz-এ "+bd(quiz.score)+"/"+bd(quiz.list.length)+" পেয়েছি। পারলে হারাও!\nচ্যালেঞ্জ কোড: ")+CHC;try{if(navigator.share)navigator.share({text:t});else navigator.clipboard.writeText(t).catch(function(){})}catch(e){}render()}
 function chres(){if(quiz.ch){var a=quiz.score,b=quiz.ch.s,r=a>b?"🏆 তুমি জিতেছ!":a<b?"😅 এবার হেরে গেলে, আবার চেষ্টা করো":"🤝 ড্র!";return '<div class="card" style="margin:14px 0"><div class="row" style="justify-content:space-around"><div><div class="sm">তুমি</div><b style="font-size:28px">'+bd(a)+'</b></div><b>VS</b><div><div class="sm">প্রতিপক্ষ</div><b style="font-size:28px">'+bd(b)+'</b></div></div><div style="margin-top:10px;font-weight:700">'+r+'</div></div>'}return '<div class="card" style="margin:14px 0"><b>⚔️ বন্ধুকে চ্যালেঞ্জ করো</b><div class="sm" style="margin:4px 0 10px">এই একই প্রশ্নে বন্ধু খেলবে, তারপর স্কোর মিলবে।</div>'+(CHC&&CHQ===quiz?'<input type="text" readonly value="'+CHC+'" onclick="this.select()"><div class="sm">কোড শেয়ার/কপি হয়েছে। (ডেমো: হোমে গিয়ে এই কোড নিজেই বসিয়ে দেখো)</div>':'<button class="btn" onclick="chal()">চ্যালেঞ্জ কোড বানাও</button>')+'</div>'}
 function chjoin(){return '<div class="card" style="margin-top:12px"><b>⚔️ চ্যালেঞ্জ কোড আছে?</b><input type="text" id="chc" placeholder="কোড পেস্ট করো" style="margin-top:8px"><button class="btn" onclick="joinc()">চ্যালেঞ্জ নাও</button></div>'}
 function joinc(){var v=(document.getElementById("chc").value||"").trim();try{if(v.slice(0,2)!=="CH")throw 0;var p=atob(v.slice(2)).split("|"),sc=Number(p[0]),ids=p[1].split(",").map(function(x){return "q"+x});if(isNaN(sc)||ids.some(function(id){return !Q.some(function(q){return qid(q)===id})}))throw 0;var d=S.diff;S.diff="mix";start("⚔️ চ্যালেঞ্জ",null,ids.length,ids);S.diff=d;if(quiz)quiz.ch={s:sc}}catch(e){toast("কোডটা ঠিক নেই, আবার দেখো")}}
@@ -397,7 +397,7 @@ function qsaved(){start("সেভ করা প্রশ্ন",null,20,Object.
 function adb(){return '<div class="ad">📢 বিজ্ঞাপনের জায়গা (ডেমো)</div>'}
 function fb(v){S.fbk.push({q:quiz.list[quiz.i].bn,v:v});save();toast(v>0?"ধন্যবাদ! 👍":"জানানোর জন্য ধন্যবাদ, আমরা দেখব")}
 function rep(){S.fbk.push({q:quiz.list[quiz.i].bn,v:-9});save();toast("ভুলের রিপোর্ট জমা হয়েছে")}
-function shr(){var t="Simple Quiz-এ আমি "+bd(quiz.score)+"/"+bd(quiz.list.length)+" পেয়েছি! তুমিও চেষ্টা করো।";try{if(navigator.share){navigator.share({text:t});return}navigator.clipboard.writeText(t).catch(function(){});toast("কপি হয়েছে, শেয়ার করো")}catch(e){toast(t)}}
+function shr(){var t=isEn()?"I scored "+quiz.score+"/"+quiz.list.length+" on Simple Quiz! Try it too.":"Simple Quiz-এ আমি "+bd(quiz.score)+"/"+bd(quiz.list.length)+" পেয়েছি! তুমিও চেষ্টা করো।";try{if(navigator.share){navigator.share({text:t});return}navigator.clipboard.writeText(t).catch(function(){});toast("কপি হয়েছে, শেয়ার করো")}catch(e){toast(t)}}
 function nz(s){return String(s).toLowerCase().replace(/[^a-z0-9\u0980-\u09ff]/g,"")}
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;")}
 function inp(id,ph){return '<input type="text" id="'+id+'" placeholder="'+ph+'" value="'+esc(D[id])+'">'}
@@ -463,11 +463,11 @@ if(S.remind&&!dn&&new Date().getHours()>=20)h=h.replace("<div class=\"hero","<di
 return h};
 function askN(){try{if(window.Notification&&Notification.permission==="default")Notification.requestPermission()}catch(e){}}
 var _tg=tg;tg=function(k){_tg(k);if(k==="remind"&&S.remind)askN()};
-setInterval(function(){try{var t=tday();if(S.remind&&new Date().getHours()>=20&&S.daily.d!==t&&S.nl!==t&&window.Notification&&Notification.permission==="granted"){S.nl=t;save();new Notification("Simple Quiz",{body:"আজকের চ্যালেঞ্জ এখনো বাকি আছে ⏰"})}}catch(e){}},60000);
+setInterval(function(){try{var t=tday();if(S.remind&&new Date().getHours()>=20&&S.daily.d!==t&&S.nl!==t&&window.Notification&&Notification.permission==="granted"){S.nl=t;save();new Notification("Simple Quiz",{body:(S.lang==="en"?"Today's challenge is still waiting ⏰":"আজকের চ্যালেঞ্জ এখনো বাকি আছে ⏰")})}}catch(e){}},60000);
 T["10টা প্রশ্ন, আজকের জন্য"]="10 questions for today";T["⏰ আজকের চ্যালেঞ্জ এখনো বাকি আছে"]="⏰ Today's challenge is still waiting";
 var _PT=PT;PT=function(d){var m=d.match(/^আজকের স্কোর: (\d+)\/(\d+) ✓$/);if(m)return"Today's score: "+m[1]+"/"+m[2]+" ✓";m=d.match(/^🔥 (\d+) দিন$/);if(m)return"🔥 "+m[1]+" days";return _PT(d)};
 try{speechSynthesis.getVoices()}catch(e){}theme();render();
-(function(){var s=document.createElement("div");s.id="sp";s.innerHTML='<div><div style="width:150px;height:150px;margin:0 auto">'+LOGO+'</div><div style="opacity:.85;margin-top:14px">প্রতিদিন একটু একটু করে</div></div>';document.body.appendChild(s);setTimeout(function(){s.remove()},1500)})();
+(function(){var s=document.createElement("div");s.id="sp";s.innerHTML='<div><div style="width:150px;height:150px;margin:0 auto">'+LOGO+'</div><div style="opacity:.85;margin-top:14px">'+(S.lang==="en"?"A little every day":"প্রতিদিন একটু একটু করে")+'</div></div>';document.body.appendChild(s);setTimeout(function(){s.remove()},1500)})();
 if(!S.onb)obv(0);
 </script>
 
@@ -691,10 +691,10 @@ if(!S.onb)obv(0);
     w.style.cssText="position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:flex-end;justify-content:center";
     var c=document.createElement("div");
     c.style.cssText="background:#fff;color:#111;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px 16px 24px;box-sizing:border-box";
-    var t=document.createElement("div");t.textContent="কী ভুল আছে?";t.style.cssText="font-weight:700;font-size:18px;margin-bottom:12px";
+    var t=document.createElement("div");t.textContent=trn("কী ভুল আছে?");t.style.cssText="font-weight:700;font-size:18px;margin-bottom:12px";
     c.appendChild(t);
     REASONS.forEach(function(r){
-      var b=document.createElement("button");b.textContent=r;
+      var b=document.createElement("button");b.textContent=trn(r);
       b.style.cssText="display:block;width:100%;text-align:left;padding:13px 14px;margin:0 0 8px;border:1.5px solid #c9d1f5;border-radius:12px;background:#f4f6ff;color:#111;font-size:16px;font-family:inherit";
       b.onclick=function(){
         send(q,r);
@@ -703,7 +703,7 @@ if(!S.onb)obv(0);
       };
       c.appendChild(b);
     });
-    var x=document.createElement("button");x.textContent="বাতিল";
+    var x=document.createElement("button");x.textContent=trn("বাতিল");
     x.style.cssText="display:block;width:100%;padding:12px;border:0;border-radius:12px;background:#eee;color:#111;font-size:16px;font-family:inherit";
     x.onclick=function(){w.remove()};
     c.appendChild(x);w.appendChild(c);
@@ -1011,7 +1011,7 @@ img,svg{-webkit-user-drag:none}
       catch(e){
         try{console.error(e)}catch(x){}
         var a=document.getElementById("app");
-        if(a)a.innerHTML='<div style="padding:40px 20px;text-align:center"><div style="font-size:42px">😕</div><h2>কিছু একটা সমস্যা হয়েছে</h2><p class="sm">অ্যাপটা আবার চালু করলে ঠিক হয়ে যাবে।</p><button class="btn" onclick="location.reload()">আবার চালু করো</button></div>';
+        if(a)a.innerHTML='<div style="padding:40px 20px;text-align:center"><div style="font-size:42px">😕</div><h2>'+(window.trn||String)("কিছু একটা সমস্যা হয়েছে")+'</h2><p class="sm">'+(window.trn||String)("অ্যাপটা আবার চালু করলে ঠিক হয়ে যাবে।")+'</p><button class="btn" onclick="location.reload()">'+(window.trn||String)("আবার চালু করো")+'</button></div>';
       }
     };
   }
@@ -1037,8 +1037,9 @@ img,svg{-webkit-user-drag:none}
 /* ===== প্রতিবার অ্যাপ খুললে সুন্দর শুরুর পর্দা ===== */
 (function(){
   var tips=["প্রতিদিন একটু একটু করে এগিয়ে চলো।","ভুল উত্তরই সবচেয়ে ভালো শিক্ষক।","আজকের ১০ মিনিটই আগামীকালের আত্মবিশ্বাস।","কঠিন প্রশ্নে থামলে চলবে না, ব্যাখ্যাটা পড়ে নাও।","নিয়মিত অনুশীলনেই সাফল্য আসে।","পরীক্ষার আগে ভালো ঘুম আর পানি ভুলো না।","একটা ভুল দুবার না করাই আসল জয়।","ছোট ছোট জয় জমেই বড় সাফল্য হয়।","আজ একটা নতুন কিছু শিখে ঘুমাতে যাও।","তুমি যতটা ভাবো, তার চেয়ে অনেক এগিয়ে আছো।","সময় ধরে অনুশীলন করলে পরীক্ষার ভয় কমে।","শেখার কোনো শেষ নেই, শুরুটাই আসল।"];
+  if(S.lang==="en")tips=["Keep moving forward, a little every day.","Mistakes are the best teachers.","Today's 10 minutes are tomorrow's confidence.","Don't stop at hard questions; read the explanation.","Success comes from regular practice.","Don't forget good sleep and water before the exam.","The real win is not making the same mistake twice.","Small wins add up to big success.","Learn something new before you sleep tonight.","You're further ahead than you think.","Timed practice reduces exam fear.","Learning never ends; the start is what matters."];
   var tip=tips[Math.floor(Math.random()*tips.length)];
-  try{if(S.st&&S.st.n>1&&Math.random()<.4)tip="🔥 "+bd(S.st.n)+" দিনের স্ট্রিক চলছে। আজও চালিয়ে যাও!"}catch(e){}
+  try{if(S.st&&S.st.n>1&&Math.random()<.4)tip=S.lang==="en"?"🔥 "+S.st.n+"-day streak going. Keep it up today!":"🔥 "+bd(S.st.n)+" দিনের স্ট্রিক চলছে। আজও চালিয়ে যাও!"}catch(e){}
   var old=document.getElementById("sp");if(old)old.remove();
   var d=document.createElement("div");d.id="sp2";
   d.innerHTML='<div class="in"><div class="lg">'+(typeof LOGO!=="undefined"?LOGO:"")+'</div><div class="nm">Simple Quiz</div><div class="tp"></div><div class="dt"><i></i><i></i><i></i></div></div>';
@@ -1080,13 +1081,14 @@ img,svg{-webkit-user-drag:none}
   var LN=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.LocalNotifications;
   if(!LN||typeof custom!=="function")return;
   var MSG=["আজকের কুইজ বাকি আছে। ১০ মিনিটে স্ট্রিক ধরে রাখো! 🔥","একটু সময় বের করে আজকের প্রশ্নগুলো সমাধান করে ফেলো।","তোমার প্রস্তুতি অপেক্ষা করছে। চলো শুরু করি!"];
+  var MSGE=["Today's quiz is still waiting. Keep your streak alive in 10 minutes! 🔥","Take a little time and finish today's questions.","Your preparation is waiting. Let's get started!"];
   function rem(){if(!S.rem||typeof S.rem!=="object")S.rem={on:false,h:20,m:0};return S.rem}
   function p2(n){return (n<10?"0":"")+n}
   function plan(){
     var r=rem();
     return Promise.resolve(LN.cancel({notifications:[{id:1}]})).catch(function(){}).then(function(){
       if(!r.on)return;
-      return LN.schedule({notifications:[{id:1,title:"Simple Quiz",body:MSG[Math.floor(Math.random()*MSG.length)],schedule:{on:{hour:r.h,minute:r.m},allowWhileIdle:true}}]});
+      return LN.schedule({notifications:[{id:1,title:"Simple Quiz",body:(S.lang==="en"?MSGE:MSG)[Math.floor(Math.random()*MSG.length)],schedule:{on:{hour:r.h,minute:r.m},allowWhileIdle:true}}]});
     });
   }
   window.remToggle=function(){
@@ -1115,6 +1117,161 @@ img,svg{-webkit-user-drag:none}
   };
   if(rem().on)plan().catch(function(){});
 })();
+</script>
+<script>
+/* ===== English mode: no Bangla should be left on screen ===== */
+(function(){
+  var BNd="০১২৩৪৫৬৭৮৯";
+  function dg(x){return String(x).replace(/[০-৯]/g,function(c){return BNd.indexOf(c)})}
+  function isEn(){return (typeof S!=="undefined"&&S.lang==="en")||(typeof quiz!=="undefined"&&!!quiz&&quiz.lang==="en")}
+  window.isEn=isEn;
+  function X(bn,en){var k=dg(bn);if(!(k in T))T[k]=en}
+
+  /* screens */
+  X("নিজের লেখা প্রশ্ন পাঠান। যাচাইয়ে পাস করলে প্রশ্নটা সবার কুইজে যোগ হবে।","Submit your own question. If it passes review, it will be added to everyone's quiz.");
+  X("সে. = সেকেন্ড, মি. = মিনিট","sec = seconds, min = minutes");
+  X("ব্যাকআপ","Backup");
+  X("নতুন ফোনে স্কোর, স্ট্রিক আর সেভ করা প্রশ্ন ফিরিয়ে আনতে কোড বানিয়ে নিজের কাছে রেখে দাও।","To bring back your score, streak and saved questions on a new phone, generate a code and keep it safe.");
+  X("কোড বানাও","Generate code");
+  X("ফিরিয়ে আনো","Restore");
+  X("কপি করো","Copy");
+  X("এখানে ব্যাকআপ কোড বসাও","Paste your backup code here");
+  X("রিমাইন্ডার","Reminder");
+  X("রোজ মনে করিয়ে দেবে","Remind me every day");
+  X("প্রতিদিন তোমার বেছে নেওয়া সময়ে একটা বার্তা আসবে।","You'll get a message every day at the time you choose.");
+  X("চালু","On");X("বন্ধ","Off");X("সময়:","Time:");
+  X("ঠিক আছে","OK");
+  X("কী ভুল আছে?","What's wrong?");
+  X("উত্তর ভুল","Wrong answer");X("প্রশ্ন অস্পষ্ট","Unclear question");
+  X("বানান বা ভাষার ভুল","Spelling or language mistake");X("অন্য কিছু","Something else");
+  X("বাতিল","Cancel");X("আবার চেষ্টা করো","Try again");
+  X("কিছু একটা সমস্যা হয়েছে","Something went wrong");
+  X("অ্যাপটা আবার চালু করলে ঠিক হয়ে যাবে।","Restarting the app should fix it.");
+  X("আবার চালু করো","Restart");
+  X("শীঘ্রই আসছে","Coming soon");
+  X("প্রশ্ন তৈরি হচ্ছে","Questions are being prepared");
+  X("কিছুক্ষণের মধ্যেই প্রথম বিষয়গুলো এসে যাবে।","The first topics will be here shortly.");
+  X("আরও বিষয়ের প্রশ্ন তৈরি হচ্ছে, শীঘ্রই যোগ হবে।","Questions for more topics are being prepared and will be added soon.");
+  X("তুমি","You");X("প্রতিপক্ষ","Opponent");
+  X("ভালো চেষ্টা, আরেকবার করে দেখো।","Good try, give it another go.");
+  X("আরও অনুশীলন দরকার।","More practice needed.");
+  X("দারুণ হয়েছে!","Well done!");
+  X("চ্যালেঞ্জ কোড বানাও","Create challenge code");
+  X("কোড শেয়ার/কপি হয়েছে। (ডেমো: হোমে গিয়ে এই কোড নিজেই বসিয়ে দেখো)","Code shared/copied. (Demo: go Home and paste this code yourself to try it)");
+
+  /* toasts, dialogs, messages */
+  X("এই ডিভাইসে পড়ে শোনানো যাচ্ছে না","Cannot read aloud on this device");
+  X("কুইজ থেকে বের হবে?","Leave the quiz?");
+  X("আবার চাপলে অ্যাপ বন্ধ হবে","Press again to close the app");
+  X("কোড বানানো গেল না","Could not generate the code");
+  X("কোড কপি হয়েছে","Code copied");
+  X("এই কোড দিয়ে এই ফোনের বর্তমান তথ্য বদলে যাবে। চালিয়ে যাবে?","This code will replace the data currently on this phone. Continue?");
+  X("ফিরিয়ে আনা হয়েছে","Restored");
+  X("কোডটা ঠিক নেই","The code is not valid");
+  X("কোডটা ঠিক নেই, আবার দেখো","The code is not valid, please check again");
+  X("রিমাইন্ডার বন্ধ হয়েছে","Reminder turned off");
+  X("নোটিফিকেশনের অনুমতি দাওনি। ফোনের সেটিংস থেকে চালু করতে পারো।","Notification permission was not granted. You can turn it on in your phone settings.");
+  X("রিমাইন্ডার চালু করা গেল না","Could not turn on the reminder");
+  X("এই প্রশ্নের রিপোর্ট আগেই জমা হয়েছে","You already reported this question");
+  X("রিপোর্ট পাঠাতে ইন্টারনেট চালু করুন","Turn on the internet to send a report");
+  X("ভুলের রিপোর্ট জমা হয়েছে","Mistake report submitted");
+  X("ভুলের রিপোর্ট জমা হয়েছে, ধন্যবাদ","Report submitted, thank you");
+  X("জানানোর জন্য ধন্যবাদ, আমরা দেখব","Thanks for letting us know, we'll look into it");
+  X("ধন্যবাদ! 👍","Thanks! 👍");
+  X("কপি হয়েছে, শেয়ার করো","Copied, now share it");
+  X("দেখা প্রশ্ন রিসেট হয়েছে","Seen questions reset");
+  X("সেভ হয়েছে ⭐","Saved ⭐");X("সেভ বাদ দেওয়া হয়েছে","Removed from saved");
+  X("এই বিষয়ের সব প্রশ্ন তুমি দেখে ফেলেছ! আমার সংগ্রহ থেকে রিসেট করতে পারো","You've seen all questions for this topic! You can reset them from My Collection");
+  X("এই বিষয়ের আলাদা প্রশ্ন এখনো নেই, মিশ্র প্রশ্ন দেওয়া হলো","No separate questions for this topic yet, showing mixed questions");
+  X("এই বিষয়ের প্রশ্ন এখনও বানানো হয়নি। শীঘ্রই আসছে।","Questions for this topic have not been made yet. Coming soon.");
+  X("প্রশ্ন লোড হচ্ছে…","Loading questions…");X("খোঁজা হচ্ছে…","Searching…");
+  X("আগে বিষয় বাছো।","Choose a subject first.");
+  X("সব ঘর পূরণ করো।","Fill in all fields.");
+  X("প্রশ্নটা আরও স্পষ্ট করে লেখো।","Please write the question more clearly.");
+  X("চারটা অপশন আলাদা হতে হবে।","All four options must be different.");
+  X("লিংক দেওয়া যাবে না।","Links are not allowed.");
+  X("এই প্রশ্ন আগে থেকেই আছে।","This question already exists.");
+  X("প্রশ্ন পাঠাতে ইন্টারনেট চালু করো।","Turn on the internet to submit a question.");
+  X("আজকের জন্য সর্বোচ্চ ৫টা প্রশ্ন পাঠানো যায়। কাল আবার চেষ্টা করো।","You can submit up to 5 questions per day. Try again tomorrow.");
+  X("একটু অপেক্ষা করে আবার পাঠাও।","Please wait a moment and try again.");
+  X("জমা হয়েছে। যাচাইয়ে পাস করলে প্রশ্নটা চালু হবে (কয়েক ঘণ্টা লাগতে পারে)।","Submitted. If it passes review, the question will go live (this may take a few hours).");
+  X("জমা হয়েছে। ৩ জন ঠিক বললে প্রশ্নটা চালু হবে।","Submitted. The question goes live once 3 people confirm it.");
+  X("প্রশ্নটা চালু হয়ে গেছে, এখন কুইজে আসবে।","The question is now live and will appear in quizzes.");
+  X("ইন্টারনেট নেই। চালু করে আবার চেষ্টা করো।","No internet. Turn it on and try again.");
+  X("ইন্টারনেট ধীর। আবার চেষ্টা করবে?","The internet is slow. Try again?");
+  X("খুঁজতে ইন্টারনেট চালু করো","Turn on the internet to search");
+  X("এখন খোঁজা গেল না। ইন্টারনেট দেখো।","Could not search right now. Check the internet.");
+  X("এই নামে কোনো প্রশ্ন বা বিষয় পাওয়া যায়নি।","No question or topic found for this.");
+  X("এই ফোনে বাংলা ভয়েস নেই। ফোনের Settings > টেক্সট-টু-স্পিচ (Text-to-speech) > Google > ভয়েস ডেটা ইনস্টল (Install voice data) > বাংলা বেছে নাও, তারপর আবার চেষ্টা করো।","This phone has no Bengali voice. Open Settings > Text-to-speech > Google > Install voice data > Bengali, then try again.");
+  X("🏆 তুমি জিতেছ!","🏆 You won!");
+  X("😅 এবার হেরে গেলে, আবার চেষ্টা করো","😅 You lost this time, try again");
+  X("🤝 ড্র!","🤝 Draw!");
+
+  var PATS=[
+    [/^([\d.]+) সে\.$/,"$1 sec"],
+    [/^([\d.]+) মি\.$/,"$1 min"],
+    [/^রোজ (.+)-এ রিমাইন্ডার আসবে$/,"Reminder set for $1 every day"],
+    [/^সময় বদলে (.+) হয়েছে$/,"Reminder time changed to $1"],
+    [/^(\d+)টা বাছা হয়েছে$/,"$1 selected"],
+    [/^(?:🔥 )?(\d+) দিনের স্ট্রিক!$/,"🔥 $1-day streak!"]
+  ];
+  function sym(k){
+    var m=k.match(/^([✓✕×+⭐☆•·\-–]+\s+)?(.*?)(\s+[×✕✓])?$/);
+    if(m&&m[2]&&Object.prototype.hasOwnProperty.call(T,m[2])&&(m[1]||m[3]))return (m[1]||"")+T[m[2]]+(m[3]||"");
+    return null;
+  }
+  function trn(s){
+    if(typeof s!=="string"||!isEn()||!/[\u0980-\u09FF]/.test(s))return s;
+    var k=dg(s.trim());
+    if(Object.prototype.hasOwnProperty.call(T,k))return T[k];
+    var m=k.match(/^(❌|✅|🎉|⏰|🔥|⭐|⚔️) (.+)$/);
+    if(m&&Object.prototype.hasOwnProperty.call(T,m[2]))return m[1]+" "+T[m[2]];
+    for(var i=0;i<PATS.length;i++)if(PATS[i][0].test(k))return k.replace(PATS[i][0],PATS[i][1]);
+    var y=sym(k);if(y)return y;
+    return s;
+  }
+  window.trn=trn;
+
+  /* pattern fallback inside the on-screen translator */
+  var _PT=PT;
+  PT=function(d){var r=_PT(d);if(r)return r;for(var i=0;i<PATS.length;i++)if(PATS[i][0].test(d))return d.replace(PATS[i][0],PATS[i][1]);return sym(d)};
+
+  /* translator also runs when only the quiz is switched to English; also covers textarea placeholders */
+  var _tr=tr;
+  tr=function(){
+    if(typeof quiz!=="undefined"&&quiz&&quiz.lang==="en"&&S.lang!=="en"){var s=S.lang;S.lang="en";try{_tr()}finally{S.lang=s}}
+    else _tr();
+    if(isEn())[].forEach.call(document.querySelectorAll("#app textarea,#app input"),function(i){var p=i.getAttribute("placeholder");if(p){var t=trn(p);if(t!==p)i.setAttribute("placeholder",t)}});
+  };
+
+  /* digits follow the quiz language too */
+  bd=function(s){if(isEn())return String(s);return String(s).replace(/\d/g,function(d){return BN[d]})};
+
+  /* toasts */
+  var _toast2=toast;toast=function(m){_toast2(trn(m))};
+  /* bottom sheets */
+  if(window.qzSheet){var _qs=window.qzSheet;window.qzSheet=function(msg,btns){return _qs(trn(msg),(btns||[]).map(function(b){var c={};for(var k in b)c[k]=b[k];c.t=trn(b.t);return c}))}}
+  /* confirm dialogs */
+  var _cf=window.confirm;window.confirm=function(m){return _cf.call(window,trn(m))};
+  /* messages shown inside the Add Question form (they sit in a box the translator skips) */
+  if(typeof addv==="function"){var _av=addv;window.addv=addv=function(){var h=_av.apply(this,arguments);return isEn()?h.replace(/<div class="ex">([^<]*)<\/div>/,function(m,t){return '<div class="ex">'+trn(t)+'</div>'}):h}}
+
+  /* voice help sheet */
+  window.TTSEN='<div style="background:#fff;color:#111;border-radius:16px;max-width:420px;width:100%;padding:20px;max-height:85vh;overflow:auto;font-size:15px;line-height:1.7">'
+  +'<div style="font-size:18px;font-weight:700;margin-bottom:8px">🔊 Reading aloud in Bangla needs a Bengali voice on your phone</div>'
+  +'<div>No Bengali voice was found on this phone, so the app can\'t read questions aloud in Bangla. You only need to do the steps below once:</div>'
+  +'<div style="margin-top:10px"><b>Android:</b><br>1. Settings → Language &amp; input (or General management) → Text-to-speech<br>2. Choose Google Text-to-speech → Install voice data<br>3. Download <b>Bengali (Bangladesh)</b> or <b>Bengali (India)</b> from the list<br>4. Close the app and open it again</div>'
+  +'<div style="margin-top:10px"><b>iPhone:</b><br>1. Settings → Accessibility → Spoken Content → Voices<br>2. Choose Bengali and download the voice<br>3. Close the app and open it again</div>'
+  +'<div style="margin-top:10px;opacity:.75">Until then, you can switch the question to English and listen with an English voice.</div>'
+  +'<button style="margin-top:14px;width:100%;padding:12px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-size:16px;font-weight:700" onclick="document.getElementById(\'ttsh\').remove()">OK</button></div>';
+
+  /* the splash screens that are already on screen when this script runs */
+  if(isEn()){
+    var sp=document.getElementById("sp");if(sp){var dv=sp.querySelectorAll("div");var l=dv[dv.length-1];if(l&&/[\u0980-\u09FF]/.test(l.textContent))l.textContent="A little every day"}
+  }
+  try{render()}catch(e){}
+})();
+
 </script>
 </body>
 </html>
