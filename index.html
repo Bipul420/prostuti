@@ -332,7 +332,7 @@ function mseg(items,cur,fn){return '<div class="seg mini">'+items.map(function(x
 function custom(){
   var n=S.likes.length,en=S.lang==="en",q="&#39;",cp='<div class="card" style="padding:2px 16px">';
   var cnt=en?n+" / 5 topics selected (max 5)":bd(n)+" / "+bd(5)+"টা বিষয় বাছা হয়েছে (সর্বোচ্চ "+bd(5)+"টা)";
-  return '<h1>কাস্টমাইজ</h1><div class="sm" style="margin:-8px 0 10px">অ্যাপ সংস্করণ: ১৫ নভেম্বর – ৩</div>'+
+  return '<h1>কাস্টমাইজ</h1>'+
   '<h2>কুইজ</h2>'+cp+
     row("টাইমার",sw("timer"),"সময় শেষ হলে নিজে থেকে পরের প্রশ্ন আসবে")+
     (S.timer?'<div class="set"><div>প্রতি প্রশ্নে সময়</div><div class="sm" style="max-width:none">সে. = সেকেন্ড, মি. = মিনিট</div>'+mseg([[30,bd(30)+" সে."],[45,bd(45)+" সে."],[60,bd(1)+" মি."],[90,bd("1.5")+" মি."],[120,bd(2)+" মি."]],S.secs,"setSecs").replace("seg mini","seg mini tseg")+'</div>':"")+
