@@ -237,11 +237,12 @@ A("g","e","ভাষা আন্দোলনের বছর কত?","In which
 A("g","e","পানির রাসায়নিক সংকেত কী?","Chemical formula of water?",["H₂O","CO₂","O₂","NaCl"],0,"পানি = H₂O।","Water = H₂O.");
 A("g","e","সূর্যের সবচেয়ে কাছের গ্রহ কোনটি?","Which planet is closest to the Sun?",["শুক্র","বুধ","মঙ্গল","পৃথিবী"],1,"সূর্যের সবচেয়ে কাছে বুধ।","Mercury is closest to the Sun.",["Venus","Mercury","Mars","Earth"]);
 A("g","e","বিশ্বের বৃহত্তম মহাসাগর কোনটি?","Which is the largest ocean?",["আটলান্টিক","প্রশান্ত","ভারত","আর্কটিক"],1,"প্রশান্ত মহাসাগর সবচেয়ে বড়।","The Pacific is the largest.",["Atlantic","Pacific","Indian","Arctic"])})();
-var DEF={timer:true,secs:15,lang:"bn",diff:"mix",count:10,expl:true,speak:true,auto:false,remind:true,dark:false,likes:["BCS","ব্যাংক জব","গণিত"]};
+var DEF={timer:true,secs:30,lang:"bn",diff:"mix",count:10,expl:true,speak:true,auto:false,remind:true,dark:false,likes:["BCS","ব্যাংক জব","গণিত"]};
 var S=JSON.parse(JSON.stringify(DEF));
 try{var sv=localStorage.getItem("prostuti");if(sv){var o=JSON.parse(sv);for(var k in o)S[k]=o[k]}}catch(e){}
 try{if(!sv||JSON.parse(sv).dark===undefined)S.dark=window.matchMedia("(prefers-color-scheme: dark)").matches}catch(e){}
 if(S.likes.length>5)S.likes=S.likes.slice(0,5);
+if(!(S.secs>=30&&S.secs<=120))S.secs=30;
 function save(){try{localStorage.setItem("prostuti",JSON.stringify(S))}catch(e){}}
 function theme(){var r=document.documentElement;r.classList.toggle("dk",!!S.dark);r.style.colorScheme=S.dark?"dark":"light"}
 var tab="home",quiz=null,tm=null,all=false,pm=false,ICONS={"BCS":"🏛️","ব্যাংক জব":"🏦","ইন্টারভিউ":"🎤","গণিত ও যুক্তি":"🧮","ইংরেজি":"🔤","সব বিষয়, A থেকে Z":"📚"},NI={home:"🏠",topics:"✏️",mock:"📝",add:"➕",custom:"⚙️"};
@@ -271,21 +272,33 @@ function start(title,keys,n,ids){
 function tick(){clearInterval(tm);if(!S.timer||!quiz)return;quiz.left=S.secs;
   tm=setInterval(function(){if(!quiz||quiz.sel!==null||quiz.done){return}
     quiz.left--;if(quiz.left<=0){quiz.left=0;pick(-1);autoNext()}else{var el=document.getElementById("tm");if(el){el.textContent="⏱ "+clock(quiz.left);el.style.color=quiz.left<=5?"var(--bad)":"";el.style.borderColor=quiz.left<=5?"var(--bad)":""}}},1000)}
-function clock(s){return bd("0:"+(s<10?"0":"")+s)}
+function clock(s){var m=Math.floor(s/60),r=s%60;return bd(m+":"+(r<10?"0":"")+r)}
 function pick(i){var q=quiz.list[quiz.i];if(quiz.sel!==null)return;quiz.sel=i;S.seen[qid(q)]=1;save();
   if(i===q.a)quiz.score++;else quiz.wrong.push(q.t);render()}
 function next(){quiz.sel=null;quiz.i++;if(quiz.i>=quiz.list.length){quiz.done=true;clearInterval(tm)}else tick();render();try{speechSynthesis.cancel()}catch(e){}if(!quiz.done&&S.speak&&S.auto)say()}
 function leave(){clearInterval(tm);try{speechSynthesis.cancel()}catch(e){}quiz=null;render()}
 function qlang(l){quiz.lang=l;render();if(S.speak&&S.auto)say()}
 function bnv(vs){for(var i=0;i<vs.length;i++){var l=vs[i].lang.toLowerCase().replace("_","-");if(l.indexOf("bn")===0||/bengali|bangla/i.test(vs[i].name))return vs[i]}return null}
-function say(w){if(!quiz||quiz.done)return;var q=quiz.list[quiz.i],en=quiz.lang==="en",L=["ক","খ","গ","ঘ"],EL=["A","B","C","D"];
+function say(w,m){if(!quiz||quiz.done)return;var q=quiz.list[quiz.i],en=quiz.lang==="en",L=["ক","খ","গ","ঘ"],EL=["A","B","C","D"];
   var txt=(en?q.en:q.bn)+". "+q.o.map(function(o,i){return (en?EL[i]:L[i])+", "+(en?(q.oe?q.oe[i]:o):(q.oe?o:bd(o)))}).join(". ");
   try{var ss=speechSynthesis,vs=ss.getVoices();
-    if(!vs.length&&!w){setTimeout(function(){say(1)},500);return}
+    if(!vs.length&&!w){setTimeout(function(){say(1,m)},500);return}
     ss.cancel();var u=new SpeechSynthesisUtterance(txt),v=en?vs.filter(function(x){return x.lang.toLowerCase().replace("_","-").indexOf("en")===0})[0]:bnv(vs);
     u.lang=en?"en-US":"bn-BD";u.rate=.95;
-    if(v){u.voice=v;u.lang=v.lang}else if(!en)toast("এই ফোনে বাংলা ভয়েস পাওয়া যায়নি। ফোনের সেটিংস থেকে টেক্সট-টু-স্পিচে বাংলা ইনস্টল করো");
+    if(v){u.voice=v;u.lang=v.lang}else if(!en)ttsHelp(m);
     setTimeout(function(){ss.speak(u)},120)}catch(e){toast("এই ডিভাইসে পড়ে শোনানো যাচ্ছে না")}}
+var ttsShown=false;
+function ttsHelp(m){if((ttsShown&&!m)||document.getElementById("ttsh"))return;ttsShown=true;
+  var d=document.createElement("div");d.id="ttsh";
+  d.style.cssText="position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px";
+  d.innerHTML='<div style="background:#fff;color:#111;border-radius:16px;max-width:420px;width:100%;padding:20px;max-height:85vh;overflow:auto;font-size:15px;line-height:1.7">'
+  +'<div style="font-size:18px;font-weight:700;margin-bottom:8px">🔊 বাংলায় পড়ে শোনাতে ফোনে বাংলা ভয়েস লাগবে</div>'
+  +'<div>এই ফোনে বাংলা ভয়েস পাওয়া যায়নি, তাই অ্যাপ বাংলায় পড়ে শোনাতে পারছে না। নিচের ধাপগুলো একবার করে নিলেই হবে:</div>'
+  +'<div style="margin-top:10px"><b>অ্যান্ড্রয়েড:</b><br>১. সেটিংস → ভাষা ও ইনপুট (বা সাধারণ ব্যবস্থাপনা) → টেক্সট-টু-স্পিচ<br>২. Google Text-to-speech বেছে নিন → ভয়েস ডেটা ইনস্টল করুন<br>৩. তালিকা থেকে <b>বাংলা (বাংলাদেশ)</b> বা <b>বাংলা (ভারত)</b> ডাউনলোড করুন<br>৪. অ্যাপ বন্ধ করে আবার খুলুন</div>'
+  +'<div style="margin-top:10px"><b>আইফোন:</b><br>১. সেটিংস → অ্যাক্সেসিবিলিটি → Spoken Content → Voices<br>২. Bengali বেছে নিয়ে ভয়েস ডাউনলোড করুন<br>৩. অ্যাপ বন্ধ করে আবার খুলুন</div>'
+  +'<div style="margin-top:10px;opacity:.75">ততক্ষণ চাইলে প্রশ্নটি ইংরেজিতে করে ইংরেজি ভয়েসে শুনতে পারেন।</div>'
+  +'<button style="margin-top:14px;width:100%;padding:12px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-size:16px;font-weight:700" onclick="document.getElementById(\'ttsh\').remove()">ঠিক আছে</button></div>';
+  document.body.appendChild(d)}
 function qt(){S.timer=!S.timer;save();if(S.timer&&quiz&&!quiz.done&&quiz.sel===null)tick();else clearInterval(tm);render()}
 function qv(){S.speak=!S.speak;save();if(!S.speak){try{speechSynthesis.cancel()}catch(e){}}render()}
 function toast(m){var t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove()},1800)}
@@ -322,7 +335,7 @@ function custom(){
   return '<h1>কাস্টমাইজ</h1>'+
   '<h2>কুইজ</h2>'+cp+
     row("টাইমার",sw("timer"),"সময় শেষ হলে নিজে থেকে পরের প্রশ্ন আসবে")+
-    (S.timer?row("প্রতি প্রশ্নে সময়",mseg([[10,bd(10)],[15,bd(15)],[20,bd(20)],[30,bd(30)]],S.secs,"setSecs"),"সেকেন্ড"):"")+
+    (S.timer?row("প্রতি প্রশ্নে সময়",mseg([[30,bd(30)+" সে."],[45,bd(45)+" সে."],[60,bd(1)+" মি."],[90,bd("1.5")+" মি."],[120,bd(2)+" মি."]],S.secs,"setSecs"),"সে. = সেকেন্ড, মি. = মিনিট"):"")+
     row("প্রশ্নের সংখ্যা",mseg([[10,bd(10)],[20,bd(20)],[50,bd(50)]],S.count,"setCount"))+
     row("কঠিনতা",mseg([["e","সহজ"],["m","মাঝারি"],["h","কঠিন"],["mix","মিশ্র"]],S.diff,"setDiff"))+'</div>'+
   '<h2>ভাষা ও ভয়েস</h2>'+cp+
@@ -349,7 +362,7 @@ function qview(){
     ex='<div class="ex">'+pre+(S.expl?'<b>'+(en?"Correct answer: ":"সঠিক উত্তর: ")+right+(en?'.':'।')+'</b> '+(en?q.xe:q.ex):'<b>'+(en?"Correct answer: ":"সঠিক উত্তর: ")+right+'</b>')+'</div>'}
   return '<div class="top"><button class="ob" onclick="leave()">'+(en?"Exit":"বের হও")+'</button><b style="font-size:18px">'+(en?(quiz.i+1)+" / "+n:bd(quiz.i+1)+" / "+bd(n))+'</b><button class="ob" id="tm" onclick="qt()">⏱ '+(S.timer?clock(quiz.left):(en?"Off":"বন্ধ"))+'</button></div>'+
   '<div class="bar"><i style="width:'+((quiz.i+(ans?1:0))/n*100)+'%"></i></div>'+
-  '<div class="row"><div class="seg mini"><button class="'+(en?"":"on")+'" onclick="qlang(\'bn\')">বাংলা</button><button class="'+(en?"on":"")+'" onclick="qlang(\'en\')">English</button></div><div style="display:flex;gap:8px"><button class="ob" onclick="say()" aria-label="Listen">🔊</button><button class="ob'+(S.auto?" on2":"")+'" onclick="qa()">'+(en?"Auto":"অটো")+'</button></div></div>'+
+  '<div class="row"><div class="seg mini"><button class="'+(en?"":"on")+'" onclick="qlang(\'bn\')">বাংলা</button><button class="'+(en?"on":"")+'" onclick="qlang(\'en\')">English</button></div><div style="display:flex;gap:8px"><button class="ob" onclick="say(0,1)" aria-label="Listen">🔊</button><button class="ob'+(S.auto?" on2":"")+'" onclick="qa()">'+(en?"Auto":"অটো")+'</button></div></div>'+
   '<div class="q">'+(en?q.en:q.bn)+'</div>'+opts+ex+(ans?'<div class="fb">প্রশ্নটা কেমন লাগল? <button onclick="fb(1)">👍</button><button onclick="fb(-1)">👎</button><button onclick="saveq()">'+(S.saved[qid(q)]?"⭐ সেভ করা":"☆ সেভ করো")+'</button></div>':'')+
   (ans?'<div class="row"><button class="ob" onclick="rep()">'+(en?"Report a mistake":"প্রশ্নে ভুল জানান")+'</button><button class="btn" onclick="next()">'+(quiz.i+1>=n?(en?"See result":"ফল দেখো"):(en?"Next":"পরের প্রশ্ন"))+'</button></div>':'');
 }
@@ -749,24 +762,24 @@ if(!S.onb)obv(0);
 
 
 <style id="compactcss">
-.hw{display:flex;flex-direction:column;min-height:calc(100dvh - 165px - env(safe-area-inset-bottom,0px))}
+.hw{display:flex;flex-direction:column;height:calc(100dvh - 165px - env(safe-area-inset-bottom,0px));min-height:480px}
 .hw>.row:first-child{margin-bottom:2px}
-.hw h1{font-size:26px;margin:0}
-.hw>.row:first-child .sm{font-size:14px!important;line-height:1.3}
+.hw h1{font-size:24px;margin:0}
+.hw>.row:first-child .sm{font-size:13px!important;line-height:1.2}
 .hw .hero{padding:10px 14px;margin:6px 0 8px;border-radius:18px}
-.hw .hero b{font-size:18px}
+.hw .hero b{font-size:16px}
 .hw .hero .btnw{padding:8px 14px}
-.hw input[type=text]{padding:11px 14px;margin-bottom:10px;font-size:16px;border-radius:14px}
-.hw .chip{padding:5px 13px;margin:0 6px 6px 0}
-.hw .grid{flex:1 1 auto;gap:10px;margin-bottom:10px}
-.hw .grid .tile{padding:10px 12px;display:flex;flex-direction:column;justify-content:center}
+.hw input[type=text]{padding:9px 14px;margin-bottom:8px;font-size:15px;border-radius:14px}
+.hw .chip{padding:3px 12px;margin:0 6px 4px 0}
+.hw .grid{flex:1 1 auto;min-height:0;grid-template-rows:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:8px}
+.hw .grid .tile{padding:6px 10px;display:flex;flex-direction:column;justify-content:center;min-height:0;overflow:hidden}
 .hw .grid .tile .ic{width:34px;height:34px;border-radius:11px;margin-bottom:3px}
 .hw .tile .ic .i{width:24px;height:24px}
-.hw .tile b{font-size:17px;line-height:1.25}
-.hw .tile .sm{font-size:14px;line-height:1.25}
+.hw .tile b{font-size:15px;line-height:1.2}
+.hw .tile .sm{font-size:12px;line-height:1.2}
 .hw>.card.row{padding:8px 14px;margin:0}
-.hw>.card.row b{font-size:17px!important}
-.hw>.card.row .sm{font-size:14px}
+.hw>.card.row b{font-size:15px!important}
+.hw>.card.row .sm{font-size:12px}
 .hw>.card.row .btn{padding:8px 14px}
 </style>
 <script>
