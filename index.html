@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Simple Quiz</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap"></noscript>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@700&display=swap"></noscript>
 <style>
 :root{--bg:#f4f6fc;--card:#fff;--ink:#0f1a3a;--mute:#5b6585;--line:#dde1f0;--pri:#2e3fa8;--on:#fff;--ok:#12806a;--bad:#b4530a;--warm:#fdeccb;--warmink:#6b3d00;--off:#dde1f0;--okbg:#e6f5f1;--badbg:#fbeee3}
 @media not all{:root:not([data-theme="light"]){--bg:#0e1226;--card:#171c36;--ink:#eef0fb;--mute:#9aa3c7;--line:#2b3157;--pri:#7d8cf5;--on:#0e1226;--ok:#3cc2a2;--bad:#f0914a;--warm:#3a2d12;--warmink:#f5cf8a;--off:#2b3157;--okbg:#12302a;--badbg:#38241a}}
@@ -21,6 +21,16 @@ h1{font-size:30px;margin:0 0 14px;font-weight:700;line-height:1.2}
 h2{font-size:17px;margin:18px 0 8px;font-weight:700}.sec{font-size:22px;font-weight:700;color:var(--pri);margin:30px 0 0;padding-top:14px;border-top:2px solid var(--line)}.sec:first-of-type{margin-top:6px;border:0;padding:0}
 .sm{color:var(--mute);font-size:14px}
 button{font:inherit;color:inherit;cursor:pointer}
+/* perf: smoother on every phone */
+html{-webkit-tap-highlight-color:transparent}
+button,.opt,.tile,.chip,nav button{touch-action:manipulation}
+body{overscroll-behavior-y:none}
+html.hid *,html.hid *:before,html.hid *:after{animation-play-state:paused!important}
+html.lite *,html.lite *:before,html.lite *:after{animation-iteration-count:1!important;transition-duration:.01s!important}
+html.lite body .tile,html.lite body .card,html.lite body #app .opt,html.lite body .q{box-shadow:0 2px 0 rgba(30,50,120,.14)!important;filter:none!important}
+html.lite *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;text-shadow:none!important}
+
+.d{font-family:"Noto Sans Bengali","Hind Siliguri",system-ui,sans-serif;font-weight:700;font-size:1.12em;display:inline-block;line-height:1}
 .card{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:14px 16px}
 .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .pill{background:var(--warm);color:var(--warmink);border-radius:999px;padding:6px 14px;font-weight:700}
@@ -217,12 +227,14 @@ html.dk .opt.bad .k{background:var(--bad);border-color:var(--bad);color:#fff}
 .tc.on::after{content:"✓";position:absolute;top:14px;right:14px;color:#fff;background:rgba(0,0,0,.3);width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:700}
 .rb{width:100%;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:14px;padding:12px;font-weight:700}
 </style>
+<script>/* perf flags */(function(){try{var h=document.documentElement,m=navigator.deviceMemory||4,c=navigator.hardwareConcurrency||4;if(m<=3||c<=4)h.classList.add("lite");document.addEventListener("visibilitychange",function(){h.classList.toggle("hid",document.hidden)})}catch(e){}})()</script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="igB" x2="0" y2="1"><stop offset="0" stop-color="#7b97ff"/><stop offset="1" stop-color="#1736c9"/></linearGradient><linearGradient id="igY" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#f5a300"/></linearGradient><linearGradient id="igR" x2="0" y2="1"><stop offset="0" stop-color="#ff8f80"/><stop offset="1" stop-color="#d1332a"/></linearGradient><linearGradient id="igG" x2="0" y2="1"><stop offset="0" stop-color="#62e3a8"/><stop offset="1" stop-color="#0f9a6a"/></linearGradient><linearGradient id="igO" x2="0" y2="1"><stop offset="0" stop-color="#ffa95a"/><stop offset="1" stop-color="#ee6a1a"/></linearGradient><linearGradient id="igOl" x2="0" y2="1"><stop offset="0" stop-color="#ffe3b0"/><stop offset="1" stop-color="#ffc27a"/></linearGradient><linearGradient id="igOd" x2="0" y2="1"><stop offset="0" stop-color="#e0590f"/><stop offset="1" stop-color="#a93d08"/></linearGradient><linearGradient id="igSt" x2="0" y2="1"><stop offset="0" stop-color="#f6f8ff"/><stop offset="1" stop-color="#8793b8"/></linearGradient><linearGradient id="igS" x2="0" y2="1"><stop offset="0" stop-color="#fcfdff"/><stop offset="1" stop-color="#b9c2dd"/></linearGradient><linearGradient id="igW" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#dbe2f4"/></linearGradient><linearGradient id="igBr" x2="0" y2="1"><stop offset="0" stop-color="#c4895a"/><stop offset="1" stop-color="#6b3f1f"/></linearGradient><linearGradient id="igGd" x2="0" y2="1"><stop offset="0" stop-color="#ffe48f"/><stop offset="1" stop-color="#d99a00"/></linearGradient><linearGradient id="igPk" x2="0" y2="1"><stop offset="0" stop-color="#ffb8c6"/><stop offset="1" stop-color="#e0607a"/></linearGradient><linearGradient id="igSk" x2="0" y2="1"><stop offset="0" stop-color="#ffdcbc"/><stop offset="1" stop-color="#e8a77a"/></linearGradient><linearGradient id="igSc" x2="0" y2="1"><stop offset="0" stop-color="#e6f8ea"/><stop offset="1" stop-color="#a8d9b4"/></linearGradient><linearGradient id="igC"><stop offset="0" stop-color="#c9d1ea"/><stop offset=".4" stop-color="#fff"/><stop offset="1" stop-color="#a7b2d4"/></linearGradient></defs></svg>
 <div id="app"></div>
 <script>
 var BN="০১২৩৪৫৬৭৮৯";
+function wd(s){return String(s).replace(/[\u09E6-\u09EF]+/g,function(m){return '<span class="d">'+m+'</span>'})}
 function bd(s){if(S.lang==="en")return String(s);return String(s).replace(/\d/g,function(d){return BN[d]})}
 var Q=[];
 var DEF={timer:true,secs:30,lang:"bn",diff:"mix",count:10,expl:true,speak:true,auto:false,remind:true,dark:false,likes:["BCS","ব্যাংক জব","গণিত"]};
@@ -296,6 +308,7 @@ function ttsHelp(m){if((ttsShown&&!m)||document.getElementById("ttsh"))return;tt
   +'<button style="margin-top:14px;width:100%;padding:12px;border:0;border-radius:12px;background:linear-gradient(135deg,#315cf0,#1738bd);color:#fff;font-size:16px;font-weight:700" onclick="document.getElementById(\'ttsh\').remove()">ঠিক আছে</button></div>';if(window.isEn&&isEn())d.innerHTML=window.TTSEN;
   document.body.appendChild(d)}
 function qt(){S.timer=!S.timer;save();if(S.timer&&quiz&&!quiz.done&&quiz.sel===null)tick();else clearInterval(tm);render()}
+function qvt(){qv();try{toast(S.speak?(quiz&&quiz.lang==="en"?"Voice on":"ভয়েস চালু"):(quiz&&quiz.lang==="en"?"Voice off":"ভয়েস বন্ধ"))}catch(e){}if(S.speak)say(0,1)}
 function qv(){S.speak=!S.speak;save();if(!S.speak){try{speechSynthesis.cancel()}catch(e){}}render()}
 function toast(m){var t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove()},1800)}
 function go(t){MSG="";tab=t;all=false;pm=false;render();window.scrollTo(0,0)}
@@ -453,14 +466,14 @@ function qview(){
   if(quiz.done){var pc=Math.round(quiz.score/n*100);
     return '<div class="top"><button class="ob" onclick="leave()">বের হও</button></div><div style="text-align:center;font-size:52px;margin-top:16px">'+(pc>=70?"🎉":pc>=40?"👍":"💪")+'</div><div class="big">'+bd(quiz.score)+' / '+bd(n)+'</div><p style="text-align:center;font-size:20px;font-weight:700;margin:0">'+(pc>=70?"দারুণ হয়েছে!":pc>=40?"ভালো চেষ্টা, আরেকবার করে দেখো।":"আরও অনুশীলন দরকার।")+'</p><p class="sm" style="text-align:center">সঠিক '+bd(pc)+'%</p>'+chres()+rwbtn()+(quiz.rev?wrongrev():"")+adb()+'<div class="row" style="justify-content:center;margin-top:20px"><button class="ob" onclick="leave()">হোমে ফিরো</button><button class="ob" onclick="shr()">📤 শেয়ার</button><button class="btn" onclick="start(quiz.title,null)">আবার খেলো</button></div>'}
   var ans=quiz.sel!==null;
-  var opts=q.o.map(function(o,i){var txt=en?(q.oe?q.oe[i]:o):(q.oe?o:bd(o));var c="";if(ans){if(i===q.a)c=" ok";else if(i===quiz.sel)c=" bad"}
+  var opts=q.o.map(function(o,i){var txt=en?(q.oe?q.oe[i]:o):wd(q.oe?o:bd(o));var c="";if(ans){if(i===q.a)c=" ok";else if(i===quiz.sel)c=" bad"}
     return '<button class="opt'+c+'" onclick="pick('+i+')"'+(ans?" disabled":"")+'><span class="k">'+(en?EL[i]:L[i])+'</span>'+txt+'</button>'}).join("");
   var ex="";if(ans){var right=en?EL[q.a]:L[q.a];var pre=quiz.sel===-1?(en?"Time’s up, moving on. ":"সময় শেষ, পরের প্রশ্নে যাচ্ছি। "):"";
     ex='<div class="ex">'+pre+(S.expl?'<b>'+(en?"Correct answer: ":"সঠিক উত্তর: ")+right+(en?'.':'।')+'</b> '+(en?q.xe:q.ex):'<b>'+(en?"Correct answer: ":"সঠিক উত্তর: ")+right+'</b>')+'</div>'}
   return '<div class="qsub">📘 '+(quiz.title||"")+((q.tp&&q.tp!==quiz.title)?' · '+q.tp:'')+'</div>'+
-  '<div class="top"><button class="ob" onclick="leave()">'+(en?"Exit":"বের হও")+'</button><b style="font-size:18px">'+(en?(quiz.i+1)+" / "+n:bd(quiz.i+1)+" / "+bd(n))+'</b><button class="ob" id="tm" onclick="qt()">⏱ '+(S.timer?clock(quiz.left):(en?"Off":"বন্ধ"))+'</button></div>'+
+  '<div class="top"><button class="ob" onclick="leave()">'+(en?"Exit":"বের হও")+'</button><b style="font-size:18px">'+(en?(quiz.i+1)+" / "+n:bd(quiz.i+1)+" / "+bd(n))+'</b>'+(S.timer?'<button class="ob" id="tm" onclick="qt()">⏱ '+clock(quiz.left)+'</button>':'<span style="width:86px;flex:none"></span>')+'</div>'+
     '<div class="bar"><i style="width:'+((quiz.i+(ans?1:0))/n*100)+'%"></i></div>'+
-  '<div class="row"><div class="seg mini"><button class="'+(en?"":"on")+'" onclick="qlang(\'bn\')">বাংলা</button><button class="'+(en?"on":"")+'" onclick="qlang(\'en\')">English</button></div><div style="display:flex;gap:8px"><button class="ob" onclick="say(0,1)" aria-label="Listen">🔊</button><button class="ob'+(S.auto?" on2":"")+'" onclick="qa()">'+(en?"Auto":"অটো")+'</button></div></div>'+
+  '<div class="row"><div class="seg mini"><button class="'+(en?"":"on")+'" onclick="qlang(\'bn\')">বাংলা</button><button class="'+(en?"on":"")+'" onclick="qlang(\'en\')">English</button></div><div style="display:flex;gap:8px"><button class="ob'+(S.speak?" on2":"")+'" onclick="qvt()" aria-label="'+(S.speak?"Voice on":"Voice off")+'" style="'+(S.speak?"":"opacity:.6")+'">'+(S.speak?"🔊":"🔇")+'</button><button class="ob'+(S.auto?" on2":"")+'" onclick="qa()">'+(en?"Auto":"অটো")+'</button></div></div>'+
   (function(){var t=en?q.en:q.bn,el=S.timer?Math.max(0,Math.min(S.secs,S.secs-quiz.left)):0,fill=S.timer?'<div class="qf" aria-hidden="true" style="animation-duration:'+S.secs+'s;animation-delay:-'+el+'s;animation-play-state:'+(ans?'paused':'running')+'"><span class="qt">'+t+'</span></div>':'';return '<div class="q"><span class="qt">'+t+'</span>'+fill+'</div>'})()+opts+ex+(ans?'<div class="fb">প্রশ্নটা কেমন লাগল? <button onclick="fb(1)">👍</button><button onclick="fb(-1)">👎</button><button onclick="saveq()">'+(S.saved[qid(q)]?"⭐ সেভ করা":"☆ সেভ করো")+'</button></div>':'')+
   (ans?'<div class="row"><button class="ob" onclick="rep()">'+(en?"Report a mistake":"প্রশ্নে ভুল জানান")+'</button><button class="btn" onclick="next()">'+(quiz.i+1>=n?(en?"See result":"ফল দেখো"):(en?"Next":"পরের প্রশ্ন"))+'</button></div>':'');
 }
@@ -628,7 +641,7 @@ if(!S.onb)obv(0);
 <script>
 /* ===== প্রশ্ন শুধু অনলাইনে থাকে: অ্যাপের ভেতরে কোনো প্রশ্ন জমা থাকে না ===== */
 (function(){
-  var QBASE="https://bipul420.github.io/prostuti/";
+  var QBASE="https://prostuti-aq6.pages.dev/";
   if(typeof start!=="function"||typeof Q==="undefined")return;
   Q.length=0; /* অ্যাপের ভেতরের নমুনা প্রশ্ন সরিয়ে ফেলা */
   var _start=start,idMap=null,done={},busy=false,READY=null,readyP=null;
@@ -963,7 +976,7 @@ if(!S.onb)obv(0);
   }
   function deep(v,done){
     var tries=0;
-    fetch("https://bipul420.github.io/prostuti/ready.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
+    fetch("https://prostuti-aq6.pages.dev/ready.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
       var list=(d.ready||[]).slice(0,CAP),i=0,more=(d.ready||[]).length>CAP;
       function step(){
         if(Q.some(function(q){return match(q,v)}))return done(true,more);
